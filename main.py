@@ -1,0 +1,238 @@
+import random
+import time
+
+# ==========================================
+# 0. 網頁終端機高相容性色彩定義 (烏野橘黑風)
+# ==========================================
+RESET = "\033[0m"
+BOLD = "\033[1m"
+
+# 使用標準 ANSI 高亮色彩，確保在 GitHub 網頁終端機 100% 不破色、不顯示亂碼
+COLOR_LIGHT_ORANGE = "\033[93m"   # 亮橘黃 (代表 #FF8000)
+COLOR_DEEP_ORANGE  = "\033[33m"   # 暗橘/棕 (代表 #EA7500)
+COLOR_BLACK        = "\033[30m"   # 純黑
+COLOR_GREEN        = "\033[92m"   # 亮綠 (資產增加)
+COLOR_RED          = "\033[91m"   # 亮紅 (資產減少)
+
+# 背景色組合
+BG_BLACK               = "\033[40m"
+BG_DEEP_ORANGE_TEXT_B  = "\033[43;30m"  # 橘底黑字
+BG_LIGHT_ORANGE_TEXT_B = "\033[103;30m" # 亮橘底黑字
+BG_BLACK_TEXT_LIGHT_O  = "\033[40;93m"  # 黑底亮橘字
+
+# ==========================================
+# 1. 遊戲資料設定與角色圖像
+# ==========================================
+AVAIABLE_CHARACTERS = {
+    "1": {"name": f"{COLOR_LIGHT_ORANGE}澤村大地{RESET}", "symbol": "🏔️ 大地", "icon": "🏔️"},
+    "2": {"name": f"{COLOR_LIGHT_ORANGE}菅原孝之{RESET}", "symbol": "😊 菅原", "icon": "😊"},
+    "3": {"name": f"{COLOR_LIGHT_ORANGE}東峰旭{RESET}",   "symbol": "🧔 東峰", "icon": "🧔"},
+    "4": {"name": f"{COLOR_LIGHT_ORANGE}清水潔子{RESET}", "symbol": "✨ 潔子", "icon": "✨"}
+}
+
+money_effects = [200, 500, -300, 150, -100, 200, -600, 150, 500, -300, 200, 150, 500]
+random.shuffle(money_effects)
+
+board = [0] * 16
+board[0] = "GO"      
+board[10] = "Chance" 
+
+other_chance_pos = random.sample([i for i in range(1, 16) if i != 10], 2)
+
+money_idx = 0
+for i in range(1, 16):
+    if i == 10:
+        continue
+    elif i in other_chance_pos:
+        board[i] = "Chance"
+    else:
+        board[i] = money_effects[money_idx]
+        money_idx += 1
+
+chance_cards = [
+    {"text": "發動快攻！前進 1 步", "value": 1},
+    {"text": "完美的接球！前進 2 步", "value": 2},
+    {"text": "跳發得分！前進 3 步", "value": 3},
+    {"text": "被對方攔網成功... 後退 2 步", "value": -2},
+    {"text": "發球失誤送分。後退 3 步", "value": -3},
+    {"text": "輪轉站位錯誤！大迷路後退 5 步", "value": -5}
+]
+
+# ==========================================
+# 2. 地圖與右側計分板繪製
+# ==========================================
+def draw_map(board, players, current_turn_player_id):
+    grid_occupants = [""] * 16
+    for p in players:
+        grid_occupants[p['position']] += p['icon']
+    
+    def fmt(idx):
+        occupants = grid_occupants[idx]
+        if occupants:
+            return f"{BG_BLACK}{occupants:<5}{RESET}"
+        else:
+            val = board[idx]
+            if val == "GO": 
+                return f"{BG_DEEP_ORANGE_TEXT_B} GO  {RESET}"
+            if val == "Chance": 
+                return f"{COLOR_LIGHT_ORANGE}{BOLD}Chance{RESET}"
+            if val > 0: 
+                return f"{COLOR_GREEN}+{val:<4}{RESET}"
+            if val < 0: 
+                return f"{COLOR_RED}-{abs(val):<4}{RESET}"
+            return f"{RESET}0    "
+
+    side_panel = [
+        f"{BG_BLACK_TEXT_LIGHT_O}{BOLD} 📝 目前角色位子  {RESET}",
+        f"{COLOR_LIGHT_ORANGE}──────────────────{RESET}"
+    ]
+    
+    for idx, p in enumerate(players):
+        turn_marker = f"{COLOR_LIGHT_ORANGE}★{RESET}" if p['id'] == current_turn_player_id else " "
+        grid_info = "START" if p['position'] == 0 else f"第 {p['position']} 格"
+        status_line = f"{turn_marker} {idx+1}. {p['icon']} {p['symbol']:<6} [{grid_info}] ({p['money']}元)"
+        side_panel.append(status_line)
+        
+    while len(side_panel) < 11:  
+        side_panel.append("")
+    
+    L = f"{COLOR_LIGHT_ORANGE}═{RESET}"
+    V = f"{COLOR_LIGHT_ORANGE}║{RESET}"
+    TL, TR = f"{COLOR_LIGHT_ORANGE}╔{RESET}", f"{COLOR_LIGHT_ORANGE}╗{RESET}"
+    BL, BR = f"{COLOR_LIGHT_ORANGE}╚{RESET}", f"{COLOR_LIGHT_ORANGE}╝{RESET}"
+    
+    print("\n" + BG_BLACK_TEXT_LIGHT_O + BOLD + " ════════════════ 🏐 烏野大富翁 🏐 ════════════════ " + RESET)
+    print(f"{TL}{L*7}{TR} {TL}{L*7}{TR} {TL}{L*7}{TR} {TL}{L*7}{TR}   {side_panel[0]}")
+    print(f"{V}{fmt(13)}{V}─{V}{fmt(12)}{V}─{V}{fmt(11)}{V}─{V}{fmt(10)}{V}   {side_panel[1]}")
+    print(f"{BL}{L*7}{BR} {BL}{L*7}{BR} {BL}{L*7}{BR} {BL}{L*7}{BR}   {side_panel[2]}")
+    print(f"{TL}{L*7}{TR}                       {TL}{L*7}{TR}   {side_panel[3]}")
+    print(f"{V}{fmt(14)}{V}                       {V}{fmt(9)}{V}   {side_panel[4]}")
+    print(f"{BL}{L*7}{BR}     {COLOR_DEEP_ORANGE}{BOLD}飛 吧！烏 野{RESET}      {BL}{L*7}{BR}   {side_panel[5]}")
+    print(f"{TL}{L*7}{TR}                       {TL}{L*7}{TR}   {side_panel[6]}")
+    print(f"{V}{fmt(15)}{V}                       {V}{fmt(8)}{V}   {side_panel[7]}")
+    print(f"{BL}{L*7}{BR}                       {BL}{L*7}{BR}   {side_panel[8]}")
+    print(f"  ▲                    {TL}{L*7}{TR}   {side_panel[9]}")
+    print(f"  │ (前進)             {V}{fmt(7)}{V}   {side_panel[10]}")
+    print(f"{TL}{L*7}{TR} {TL}{L*7}{TR} {TL}{L*7}{TR} {BL}{L*7}{BR}")
+    print(f"{V}{fmt(0)}{V}─{V}{fmt(1)}{V}─{V}{fmt(2)}{V}─{V}{fmt(3)}{V}")
+    print(f"{BL}{L*7}{BR} {BL}{L*7}{BR} {BL}{L*7}{BR} {BL}{L*7}{BR}")
+    print(BG_BLACK_TEXT_LIGHT_O + " ═════════════════════════════════════════════════ " + RESET)
+
+# ==========================================
+# 3. 遊戲主流程
+# ==========================================
+print(BG_BLACK_TEXT_LIGHT_O + BOLD + "==============================================" + RESET)
+print(BG_BLACK_TEXT_LIGHT_O + BOLD + " 🏐 排球少年！烏野三年級生飛吧！全國大賽大富翁 🏐 " + RESET)
+print(BG_BLACK_TEXT_LIGHT_O + BOLD + "==============================================" + RESET)
+
+while True:
+    num_input = input(f"\n{BOLD}請選擇遊玩人數 (2、3、4 人): {RESET}").strip()
+    if num_input in ["2", "3", "4"]:
+        num_players = int(num_input)
+        break
+    print(f"{COLOR_RED}❌ 輸入錯誤，請輸入 2、3 或 4。{RESET}")
+
+players = []
+pool = AVAIABLE_CHARACTERS.copy()
+
+for i in range(num_players):
+    print(f"\n{COLOR_DEEP_ORANGE}--- 請【玩家 {i+1}】選擇你的角色 ---{RESET}")
+    for key, char in pool.items():
+        print(f"[{key}] {char['name']} (頭像: {char['icon']})")
+        
+    while True:
+        choice = input(f"{BOLD}請輸入角色編號: {RESET}").strip()
+        if choice in pool:
+            selected = pool.pop(choice)
+            players.append({
+                "id": i,
+                "name": selected["name"],
+                "symbol": selected["symbol"],
+                "icon": selected["icon"],
+                "position": 0,
+                "money": 300
+            })
+            print(f"✅ 成功選擇：{selected['name']} {selected['icon']} ！")
+            break
+        else:
+            print(f"{COLOR_RED}❌ 編號不存在，或該角色已被選走。{RESET}")
+
+game_over = False
+winner = None
+round_count = 1
+
+while not game_over:
+    print(f"\n{BG_LIGHT_ORANGE_TEXT_B}{BOLD} 🏐 【 第 {round_count} 回合 開始 】 🏐 {RESET}")
+    
+    for player in players:
+        draw_map(board, players, player['id'])
+        input(f"\n👉 按 Enter 讓 {player['name']}({player['icon']}) 擲骰子...")
+        
+        dice = random.randint(1, 6)
+        print(f"🎲 {player['name']} 擲出了 {COLOR_LIGHT_ORANGE}{BOLD}{dice}{RESET} 點！")
+        
+        old_pos = player['position']
+        new_pos = old_pos + dice
+        
+        if new_pos >= 16:
+            player['money'] += 100
+            print(f"💰 {BG_DEEP_ORANGE_TEXT_B}成功繞場一圈！獲得前輩精神應援 100 元！{RESET}")
+            
+        player['position'] = new_pos % 16
+        current_grid = player['position']
+        print(f"🏃 移動到第 {COLOR_LIGHT_ORANGE}{current_grid}{RESET} 格。")
+        
+        event_triggered = True
+        while event_triggered:
+            grid_effect = board[current_grid]
+            
+            if grid_effect == "Chance":
+                print(f"{COLOR_LIGHT_ORANGE}✨ 踩到【機會】格！正在抽卡...{RESET}")
+                time.sleep(0.5)
+                card = random.choice(chance_cards)
+                print(f"🃏 機會卡：【{BG_BLACK_TEXT_LIGHT_O}{card['text']}{RESET}】")
+                
+                old_pos = player['position']
+                new_pos = old_pos + card['value']
+                
+                if card['value'] > 0 and new_pos >= 16:
+                    player['money'] += 100
+                    print(f"💰 {BG_DEEP_ORANGE_TEXT_B}衝過起點！獲得前輩精神應援 100 元！{RESET}")
+                
+                player['position'] = new_pos % 16
+                current_grid = player['position']
+                print(f"🚀 位置變更！移動到了第 {COLOR_LIGHT_ORANGE}{current_grid}{RESET} 格。")
+                event_triggered = True
+                
+            elif current_grid == 0:
+                print(f"{BG_BLACK}{COLOR_LIGHT_ORANGE}休息區（GO起點），儲備體力中。{RESET}")
+                event_triggered = False
+                
+            else:
+                player['money'] += grid_effect
+                if grid_effect >= 0:
+                    print(f"💵 獲得 {COLOR_GREEN}{grid_effect}{RESET} 元。")
+                else:
+                    print(f"💸 失去 {COLOR_RED}{abs(grid_effect)}{RESET} 元。")
+                event_triggered = False
+                
+        if player['money'] < 0:
+            player['money'] = 0
+            
+        print(f"💰 {player['name']} 目前總資產：{COLOR_LIGHT_ORANGE}{BOLD}{player['money']}{RESET} 元。")
+        print(f"{BG_BLACK}{COLOR_DEEP_ORANGE}--------------------------------------------{RESET}")
+        
+        if player['money'] >= 1200:
+            game_over = True
+            winner = player['name']
+            winner_icon = player['icon']
+            break 
+            
+    round_count += 1
+
+print("\n" + BG_BLACK_TEXT_LIGHT_O + BOLD + "==============================================" + RESET)
+print(f"🎉 🎉 🎉  {BG_DEEP_ORANGE_TEXT_B} 飛吧！比賽結束！ {RESET}  🎉 🎉 🎉")
+print(f" 恭喜 【{winner} {winner_icon}】 率先達到 1200 元，贏得終極勝利！")
+print(BG_BLACK_TEXT_LIGHT_O + BOLD + "==============================================" + RESET)
+for p in players:
+    print(f"🏆 {p['name']} ({p['icon']}): {COLOR_LIGHT_ORANGE}{BOLD}{p['money']}{RESET} 元")
