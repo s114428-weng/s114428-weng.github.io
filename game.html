@@ -146,6 +146,7 @@
             grid-template-columns: repeat(6, 110px);
             grid-template-rows: repeat(4, 110px);
             gap: 12px;
+            position: relative; /* 確保內部絕對定位能參考 */
         }
 
         .cell {
@@ -163,7 +164,7 @@
             box-sizing: border-box;
         }
 
-        /* 🏐 中央球場大改動：變成可點擊的互動區域 */
+        /* 🏐 中央球場大關鍵：加上 z-index 和 cursor 確保絕對不會被蓋住 */
         .center-area {
             grid-column: 2 / 6; 
             grid-row: 2 / 4;
@@ -174,29 +175,29 @@
             flex-direction: column; 
             justify-content: center; 
             align-items: center;
-            background-color: rgba(0, 0, 0, 0.8);
+            background-color: rgba(0, 0, 0, 0.9); /* 加深底色突顯 */
             position: relative;
+            z-index: 999 !important; /* 🔥 終極霸體層級，絕對不會被周圍格子蓋住 */
+            cursor: pointer; /* 讓整個中間區域都有指針手勢 */
+            user-select: none;
         }
 
-        /* 🎲 骰子/排球本體按鈕 */
+        /* 🎲 骰子/排球本體 */
         .dice-ball {
-            font-size: 65px;
-            cursor: pointer;
-            user-select: none;
+            font-size: 70px; /* 微幅放大 */
             filter: drop-shadow(0 0 10px rgba(255, 128, 0, 0.6));
             transition: transform 0.1s;
             margin-bottom: 5px;
         }
 
-        .dice-ball:hover {
-            transform: scale(1.1);
+        .center-area:hover .dice-ball {
+            transform: scale(1.15);
             filter: drop-shadow(0 0 18px rgba(255, 128, 0, 0.9));
         }
 
         /* 🎬 擲骰子時的瘋狂旋轉排球動畫 */
         .dice-ball.rolling {
             animation: crazyRoll 0.15s infinite alternate;
-            pointer-events: none; /* 滾動中禁止重複點擊 */
         }
 
         @keyframes crazyRoll {
@@ -404,7 +405,7 @@
     let players = [];
     let currentTurn = 0;
     let gameOver = false;
-    let isRolling = false; // 骰子動畫狀態鎖
+    let isRolling = false; 
 
     function switchScreen(screenId) {
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -479,19 +480,18 @@
         gameOver = false;
         isRolling = false;
         
-        document.getElementById('log-window').innerHTML = `🏐 進入體育館！比賽開始。<br>👉 請點擊球場中央的排球為【${players[0].name}】發球擲骰子！`;
-        
         switchScreen('game-screen');
         renderGame();
+        
+        document.getElementById('log-window').innerHTML = `🏐 進入體育館！比賽開始。<br>👉 請大膽點擊球場中央的【黑色排球區域】為【${players[0].name}】發球！`;
     }
 
-    // 核心渲染：包含互動骰子的狀態切換
     function renderGame(rolledDiceValue = null) {
         const mapEl = document.getElementById('map');
         if(!mapEl) return;
         mapEl.innerHTML = '';
         
-        // 1. 渲染外圍格子
+        // 1. 先畫格子
         gridMapping.forEach(cell => {
             const div = document.createElement('div');
             div.className = `cell ${cell.type}`;
@@ -506,24 +506,22 @@
             mapEl.appendChild(div);
         });
 
-        // 2. 建立中央互動球場區
+        // 2. 建立中央互動球場區 (保證在最上層)
         const center = document.createElement('div');
         center.className = 'center-area';
         
         const activePlayer = players[currentTurn];
 
-        // 智慧判斷中央是要秀出「排球骰子」還是「點數結果」
         if (rolledDiceValue) {
-            // 秀出甩骰後的步數結果
             center.innerHTML = `<div class="steps-overlay">🎲 前進 ${rolledDiceValue} 步！</div>`;
         } else {
-            // 等待玩家點按的發球排球骰子
             const ball = document.createElement('div');
             ball.className = `dice-ball ${isRolling ? 'rolling' : ''}`;
             ball.innerText = '🏐';
-            // 綁定中央點擊事件
-            ball.onclick = startRollDice;
             center.appendChild(ball);
+            
+            // 🔥 直接把點擊事件綁在「整個中央黑色大框框」上，絕對不怕點不到！
+            center.onclick = startRollDice;
         }
 
         center.innerHTML += `<strong style="color:#EA7500; letter-spacing:4px; font-size:20px;">飛 吧！</strong>
@@ -531,7 +529,7 @@
         mapEl.appendChild(center);
 
         // 3. 提示目前輪到誰
-        document.getElementById('turn-indicator-text').innerHTML = gameOver ? "🏆 比賽結束 🏆" : `👉 輪到 <strong>${activePlayer.icon} ${activePlayer.name}</strong> 的回合！請點按中央排球發球！`;
+        document.getElementById('turn-indicator-text').innerHTML = gameOver ? "🏆 比賽結束 🏆" : `👉 輪到 <strong>${activePlayer.icon} ${activePlayer.name}</strong> 的回合！請點按中央排球區發球！`;
 
         // 4. 渲染右側欄
         const listEl = document.getElementById('player-list');
@@ -548,35 +546,28 @@
         });
     }
 
-    // 🎬 觸發擲骰旋轉動畫
     function startRollDice() {
         if (gameOver || isRolling) return;
         isRolling = true;
         
-        // 重新渲染，讓排球加上 .rolling 開始瘋狂轉動
         renderGame(); 
 
-        // 模擬 1 秒鐘的激烈擊球轉動後開獎
         setTimeout(() => {
             executeMoveLogic();
         }, 1000);
     }
 
-    // 🧮 轉完後真正的點數計算與前進邏輯
     function executeMoveLogic() {
         const p = players[currentTurn];
         const log = document.getElementById('log-window');
+        const dice = Math.floor(Math.random() * 6) + 1; 
         
-        const dice = Math.floor(Math.random() * 6) + 1; // 隨機 1 ~ 6 步
-        
-        // 1. 先展示步數大字成果，不切換下一棒
         isRolling = false;
         renderGame(dice); 
 
-        // 2. 延遲 0.8 秒等玩家看完大字後，角色再出發並結算格子事件
         setTimeout(() => {
             p.pos += dice;
-            if (p.pos >= 16) { p.money += 100; p.pos %= 16; } // 繞一圈加分
+            if (p.pos >= 16) { p.money += 100; p.pos %= 16; } 
             
             let cell = gridMapping.find(c => c.idx === p.pos);
             let logMsg = `🎲 <strong>${p.icon} ${p.name}</strong> 完美發球！擲出 <span style="color:#32FF32; font-weight:bold;">${dice}</span> 點，前進至第 ${p.pos} 格（${cell.label}）。`;
@@ -594,13 +585,11 @@
 
             log.innerHTML = logMsg + `<br>💰 目前資產：<strong>${p.money}</strong> 元。`;
 
-            // 判斷是否獲勝
             if (p.money >= 1200) {
                 showEndScreen(p);
                 return;
             }
 
-            // 換下一位玩家，並回復成普通的排球等待點擊狀態
             currentTurn = (currentTurn + 1) % players.length;
             renderGame();
             log.scrollTop = log.scrollHeight;
