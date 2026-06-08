@@ -268,4 +268,272 @@
             background-color: #FF8000;
             color: #000000;
             border: 3px solid #EA7500;
-            padding: 1
+            padding: 18px 60px;
+            font-size: 22px;
+            font-weight: bold;
+            border-radius: 35px;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 6px 20px rgba(255, 128, 0, 0.5);
+            display: block;
+            margin: 10px auto;
+        }
+
+        button:hover {
+            background-color: #EA7500;
+            border-color: #FF8000;
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="start-screen" class="screen active">
+        <div class="banner">飛べ</div>
+        <div class="sub-banner">🏐 烏野三年級生：全國大賽大富翁 🏐</div>
+        <button onclick="goToSetupScreen()">進入體育館</button>
+    </div>
+
+    <div id="setup-screen" class="screen">
+        <div class="banner" style="font-size: 60px;">成員召集</div>
+        <div class="setup-container">
+            <div class="setup-row">
+                <span>選擇參與人數：</span>
+                <div class="btn-group">
+                    <button id="btn-p2" onclick="setPlayerCount(2)" class="selected">2 人</button>
+                    <button id="btn-p3" onclick="setPlayerCount(3)">3 人</button>
+                    <button id="btn-p4" onclick="setPlayerCount(4)">4 人</button>
+                </div>
+            </div>
+            <div class="character-select-area" id="selectors-wrapper">
+                </div>
+        </div>
+        <button onclick="startGameFlow()">確認陣容！出征全國大賽</button>
+    </div>
+
+    <div id="game-screen" class="screen">
+        <h1>🏐 全國大賽集訓中... </h1>
+        <div class="game-container">
+            <div class="map-grid" id="map"></div>
+            <div class="side-panel">
+                <div class="panel-title">📝 目前角色位子</div>
+                <div id="player-list"></div>
+            </div>
+        </div>
+        <div class="controls">
+            <button id="roll-btn" onclick="playTurn()">🎲 擲骰子前進</button>
+            <div id="log-window"></div>
+        </div>
+    </div>
+
+    <div id="end-screen" class="screen">
+        <div class="winner-announcement">🏆 比賽結束！優勝者是 🏆</div>
+        <div id="winner-info" class="winner-display"></div>
+        <div id="winner-name" style="font-size: 36px; color: #FF8000; margin-bottom: 40px; font-weight: bold;"></div>
+        <button onclick="resetGameFlow()">重新集訓 (再來一場)</button>
+    </div>
+
+<script>
+    const gridMapping = [
+        {idx: 0, r: 4, c: 1, label: "GO", type: "go"},
+        {idx: 1, r: 4, c: 2, label: "+200", type: "plus", val: 200},
+        {idx: 2, r: 4, c: 3, label: "+500", type: "plus", val: 500},
+        {idx: 3, r: 4, c: 4, label: "-300", type: "minus", val: -300},
+        {idx: 4, r: 4, c: 5, label: "+150", type: "plus", val: 150},
+        {idx: 5, r: 4, c: 6, label: "-100", type: "minus", val: -100}, 
+        {idx: 6, r: 3, c: 6, label: "+200", type: "plus", val: 200},
+        {idx: 7, r: 2, c: 6, label: "-600", type: "minus", val: -600},
+        {idx: 8, r: 1, c: 6, label: "+150", type: "plus", val: 150}, 
+        {idx: 9, r: 1, c: 5, label: "Chance", type: "chance"},
+        {idx: 10, r: 1, c: 4, label: "Chance", type: "chance"},
+        {idx: 11, r: 1, c: 3, label: "+500", type: "plus", val: 500},
+        {idx: 12, r: 1, c: 2, label: "-300", type: "minus", val: -300},
+        {idx: 13, r: 1, c: 1, label: "+200", type: "plus", val: 200}, 
+        {idx: 14, r: 2, c: 1, label: "Chance", type: "chance"},
+        {idx: 15, r: 3, c: 1, label: "-600", type: "minus", val: -600}
+    ];
+
+    const chanceCards = [
+        {text: "發動快攻！前進 1 步", value: 1},
+        {text: "完美的接球！前進 2 步", value: 2},
+        {text: "跳發得分！前進 3 步", value: 3},
+        {text: "被對方攔網成功... 後退 2 步", value: -2},
+        {text: "發球失誤送分。後退 3 步", value: -3},
+        {text: "輪轉站位錯誤！大迷路後退 5 步", value: -5}
+    ];
+
+    const characterPool = [
+        {name: "澤村大地", icon: "🏔️"},
+        {name: "菅原孝之", icon: "😊"},
+        {name: "東峰旭",   icon: "🧔"},
+        {name: "清水潔子", icon: "✨"}
+    ];
+
+    let selectedCount = 2; 
+    let players = [];
+    let currentTurn = 0;
+    let gameOver = false;
+
+    function switchScreen(screenId) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(screenId).classList.add('active');
+    }
+
+    // 修正點：點擊按鈕跳轉至選角畫面時，才去執行初始化選單，完美避免黑屏！
+    function goToSetupScreen() {
+        switchScreen('setup-screen');
+        setPlayerCount(2); // 進入選角畫面後，預設生出 2 人選單
+    }
+
+    // 動態依人數生成選角下拉選單
+    function setPlayerCount(count) {
+        selectedCount = count;
+        
+        document.querySelectorAll('.btn-group button').forEach(btn => btn.classList.remove('selected'));
+        const activeBtn = document.getElementById(`btn-p${count}`);
+        if(activeBtn) activeBtn.classList.add('selected');
+        
+        const wrapper = document.getElementById('selectors-wrapper');
+        if (!wrapper) return; // 安全檢查防呆
+        wrapper.innerHTML = '';
+        
+        for (let i = 1; i <= count; i++) {
+            const row = document.createElement('div');
+            row.className = 'setup-row';
+            
+            let optionsHTML = '';
+            characterPool.forEach((char, index) => {
+                const isSelected = (index === (i - 1) % characterPool.length) ? 'selected' : '';
+                optionsHTML += `<option value="${index}" ${isSelected}>${char.icon} ${char.name}</option>`;
+            });
+
+            row.innerHTML = `<span>玩家 Player ${i}：</span>
+                             <select id="p-select-${i}">${optionsHTML}</select>`;
+            wrapper.appendChild(row);
+        }
+    }
+
+    function startGameFlow() {
+        players = [];
+        for (let i = 1; i <= selectedCount; i++) {
+            const selectEl = document.getElementById(`p-select-${i}`);
+            if(!selectEl) continue;
+            const charIndex = parseInt(selectEl.value);
+            const baseChar = characterPool[charIndex];
+            players.push({
+                id: i - 1,
+                name: baseChar.name,
+                icon: baseChar.icon,
+                pos: 0,
+                money: 300 
+            });
+        }
+        
+        currentTurn = 0;
+        gameOver = false;
+        
+        const rollBtn = document.getElementById('roll-btn');
+        rollBtn.disabled = false;
+        rollBtn.innerText = '🎲 擲骰子前進';
+        
+        document.getElementById('log-window').innerHTML = `🏐 進入體育館！比賽開始，輪到【${players[0].name}】擲骰子。`;
+        
+        switchScreen('game-screen');
+        renderGame();
+    }
+
+    function renderGame() {
+        const mapEl = document.getElementById('map');
+        if(!mapEl) return;
+        mapEl.innerHTML = '';
+        
+        gridMapping.forEach(cell => {
+            const div = document.createElement('div');
+            div.className = `cell ${cell.type}`;
+            div.style.gridRow = cell.r; div.style.gridColumn = cell.c;
+            div.innerHTML = `<div>${cell.label}</div>`;
+            
+            if(cell.idx === 0) {
+                div.innerHTML += `<div class="arrow-indicator">▲ 前進</div>`;
+            }
+            
+            const pContainer = document.createElement('div');
+            pContainer.className = 'players-in-cell';
+            players.forEach(p => { if(p.pos === cell.idx) pContainer.innerHTML += p.icon; });
+            div.appendChild(pContainer);
+            mapEl.appendChild(div);
+        });
+
+        const center = document.createElement('div');
+        center.className = 'center-area';
+        center.innerHTML = '<div class="center-volleyball">🏐</div><strong style="color:#EA7500; letter-spacing:4px; font-size:22px;">飛 吧！</strong><span style="font-size:14px; margin-top:4px; color:#FF8000; letter-spacing:2px;">烏野高校排球部</span>';
+        mapEl.appendChild(center);
+
+        const listEl = document.getElementById('player-list');
+        if(!listEl) return;
+        listEl.innerHTML = '';
+        players.forEach((p, i) => {
+            const row = document.createElement('div');
+            row.className = `player-row ${i === currentTurn && !gameOver ? 'active' : ''}`;
+            const posText = p.pos === 0 ? "START" : `第 ${p.pos} 格`;
+            row.innerHTML = `<div style="width:20px; color:#FF8000; font-weight:bold;">${i === currentTurn && !gameOver ? '★' : ''}</div>
+                             <div><strong>${p.icon} ${p.name}</strong><br>
+                             <span style="font-size:12px; color:#aaa;">資產: ${p.money} 元 | 位置: ${posText}</span></div>`;
+            listEl.appendChild(row);
+        });
+    }
+
+    function playTurn() {
+        if (gameOver) return;
+        const p = players[currentTurn];
+        const log = document.getElementById('log-window');
+        
+        const dice = Math.floor(Math.random() * 6) + 1;
+        p.pos += dice;
+        if (p.pos >= 16) { p.money += 100; p.pos %= 16; }
+        
+        let cell = gridMapping.find(c => c.idx === p.pos);
+        let logMsg = `🎲 <strong>${p.icon} ${p.name}</strong> 擲出 <span style="color:#FF8000">${dice}</span> 點，來到第 ${p.pos} 格（${cell.label}）。`;
+
+        if (cell.type === 'chance') {
+            const card = chanceCards[Math.floor(Math.random() * chanceCards.length)];
+            logMsg += `<br>✨ 踩到機會！抽卡：【<strong>${card.text}</strong>】`;
+            p.pos = (p.pos + card.value + 16) % 16;
+            cell = gridMapping.find(c => c.idx === p.pos);
+            logMsg += ` 位置變更為第 ${p.pos} 格。`;
+        }
+
+        if (cell.val) p.money += cell.val;
+        if (p.money < 0) p.money = 0;
+
+        log.innerHTML = logMsg + `<br>💰 目前資產：<strong>${p.money}</strong> 元。`;
+
+        if (p.money >= 1200) {
+            showEndScreen(p);
+            return;
+        }
+
+        currentTurn = (currentTurn + 1) % players.length;
+        renderGame();
+        log.scrollTop = log.scrollHeight;
+    }
+
+    function showEndScreen(winner) {
+        gameOver = true;
+        document.getElementById('winner-info').innerText = winner.icon;
+        document.getElementById('winner-name').innerText = winner.name;
+        switchScreen('end-screen');
+    }
+
+    function resetGameFlow() {
+        players = [];
+        currentTurn = 0;
+        gameOver = false;
+        
+        // 重新跳回選角畫面，等待新一局配置
+        goToSetupScreen();
+    }
+</script>
+
+</body>
+</html>
