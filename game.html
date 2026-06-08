@@ -18,9 +18,9 @@
             box-sizing: border-box;
         }
 
-        /* 畫面切換容器 - 徹底修正遮擋問題 */
+        /* 畫面切換容器 - 確保未激活的完全消失 */
         .screen {
-            display: none; /* 預設完全不佔空間、不遮擋 */
+            display: none; 
             flex-direction: column;
             align-items: center;
             animation: fadeIn 0.3s ease-in-out;
@@ -28,18 +28,17 @@
         }
 
         .screen.active {
-            display: flex; /* 只有激活的頁面才會出現 */
+            display: flex; /* 只有加上 active 的頁面才會實體顯示 */
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: scale(0.95); }
+            from { opacity: 0; transform: scale(0.98); }
             to { opacity: 1; transform: scale(1); }
         }
 
         /* --- 1. 開始頁面樣式 --- */
         #start-screen {
             text-align: center;
-            z-index: 10;
         }
 
         .banner {
@@ -98,13 +97,31 @@
             box-sizing: border-box;
         }
 
+        /* 中央區域：排球巨型頭像 */
         .center-area {
             grid-column: 2 / 4; grid-row: 2 / 4;
             border: 2px dashed #EA7500;
+            border-radius: 8px;
             color: #EA7500;
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            font-size: 24px;
-            font-weight: bold;
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.6);
+            position: relative;
+        }
+
+        /* 超大發光排球動畫 */
+        .center-volleyball {
+            font-size: 55px; 
+            margin-bottom: 5px;
+            filter: drop-shadow(0 0 8px rgba(255, 128, 0, 0.6));
+            animation: pulseBall 2s infinite alternate;
+        }
+
+        @keyframes pulseBall {
+            from { transform: scale(1); filter: drop-shadow(0 0 6px rgba(255, 128, 0, 0.5)); }
+            to { transform: scale(1.06); filter: drop-shadow(0 0 14px rgba(255, 128, 0, 0.9)); }
         }
 
         .cell.go { background-color: #EA7500; color: #000; }
@@ -153,7 +170,6 @@
             padding: 50px;
             border-radius: 20px;
             border: 5px double #FF8000;
-            z-index: 10;
         }
 
         .winner-announcement {
@@ -165,89 +181,4 @@
 
         .winner-display {
             font-size: 100px;
-            margin: 20px 0;
-            animation: bounce 0.5s infinite alternate;
-        }
-
-        @keyframes bounce {
-            from { transform: translateY(0); }
-            to { transform: translateY(-10px); }
-        }
-
-        /* 通用按鈕樣式 */
-        button {
-            background-color: #FF8000;
-            color: #000000;
-            border: none;
-            padding: 15px 50px;
-            font-size: 20px;
-            font-weight: bold;
-            border-radius: 30px;
-            cursor: pointer;
-            transition: 0.2s;
-            box-shadow: 0 5px 15px rgba(255, 128, 0, 0.4);
-        }
-
-        button:hover {
-            background-color: #EA7500;
-            transform: scale(1.05);
-        }
-    </style>
-</head>
-<body>
-
-    <div id="start-screen" class="screen active">
-        <div class="banner">飛べ</div>
-        <div class="sub-banner">🏐 烏野三年級生：全國大賽大富翁 🏐</div>
-        <button onclick="switchScreen('game-screen')">進入體育館 (開始遊戲)</button>
-    </div>
-
-    <div id="game-screen" class="screen">
-        <h1>🏐 全國大賽集訓中... </h1>
-        <div class="game-container">
-            <div class="map-grid" id="map"></div>
-            <div class="side-panel">
-                <div class="panel-title">📝 目前角色位子</div>
-                <div id="player-list"></div>
-            </div>
-        </div>
-        <div class="controls">
-            <button id="roll-btn" onclick="playTurn()">🎲 擲骰子前進</button>
-            <div id="log-window"></div>
-        </div>
-    </div>
-
-    <div id="end-screen" class="screen">
-        <div class="winner-announcement">🏆 比賽結束！優勝者是 🏆</div>
-        <div id="winner-info" class="winner-display"></div>
-        <div id="winner-name" style="font-size: 36px; color: #FF8000; margin-bottom: 40px; font-weight: bold;"></div>
-        <button onclick="resetGame()">重新集訓 (再來一場)</button>
-    </div>
-
-<script>
-    // 地圖格子排版 (逆時針閉合)
-    const gridMapping = [
-        {idx: 0, r: 4, c: 1, label: "GO", type: "go"},
-        {idx: 1, r: 4, c: 2, label: "+200", type: "plus", val: 200},
-        {idx: 2, r: 4, c: 3, label: "+500", type: "plus", val: 500},
-        {idx: 3, r: 4, c: 4, label: "-300", type: "minus", val: -300},
-        {idx: 4, r: 3, c: 4, label: "+150", type: "plus", val: 150},
-        {idx: 5, r: 2, c: 4, label: "-100", type: "minus", val: -100},
-        {idx: 6, r: 1, c: 4, label: "+200", type: "plus", val: 200},
-        {idx: 7, r: 1, c: 3, label: "-600", type: "minus", val: -600},
-        {idx: 8, r: 1, c: 2, label: "+150", type: "plus", val: 150},
-        {idx: 9, r: 1, c: 1, label: "Chance", type: "chance"},
-        {idx: 10, r: 2, c: 1, label: "Chance", type: "chance"},
-        {idx: 11, r: 3, c: 1, label: "+500", type: "plus", val: 500},
-        {idx: 12, r: 3, c: 2, label: "-300", type: "minus", val: -300},
-        {idx: 13, r: 3, c: 3, label: "+200", type: "plus", val: 200},
-        {idx: 14, r: 2, c: 3, label: "Chance", type: "chance"},
-        {idx: 15, r: 2, c: 2, label: "-600", type: "minus", val: -600}
-    ];
-
-    const chanceCards = [
-        {text: "發動快攻！前進 1 步", value: 1},
-        {text: "完美的接球！前進 2 步", value: 2},
-        {text: "跳發得分！前進 3 步", value: 3},
-        {text: "被對方攔網成功... 後退 2 步", value: -2},
-        {text: "發
+            margin: 20px
