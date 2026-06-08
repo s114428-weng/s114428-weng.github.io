@@ -12,35 +12,38 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
-            overflow: hidden;
+            padding: 20px;
+            box-sizing: border-box;
         }
 
-        /* 畫面切換容器 */
+        /* 畫面切換容器 - 徹底修正遮擋問題 */
         .screen {
-            display: none;
+            display: none; /* 預設完全不佔空間、不遮擋 */
             flex-direction: column;
             align-items: center;
-            animation: fadeIn 0.5s ease-in-out;
+            animation: fadeIn 0.3s ease-in-out;
+            width: 100%;
         }
 
         .screen.active {
-            display: flex;
+            display: flex; /* 只有激活的頁面才會出現 */
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: scale(0.9); }
+            from { opacity: 0; transform: scale(0.95); }
             to { opacity: 1; transform: scale(1); }
         }
 
         /* --- 1. 開始頁面樣式 --- */
         #start-screen {
             text-align: center;
+            z-index: 10;
         }
 
         .banner {
-            font-size: 80px;
+            font-size: 90px;
             color: #EA7500;
             margin-bottom: 10px;
             font-weight: bold;
@@ -49,16 +52,18 @@
         }
 
         .sub-banner {
-            font-size: 24px;
+            font-size: 26px;
             color: #FF8000;
             margin-bottom: 40px;
+            font-weight: bold;
         }
 
-        /* --- 2. 遊戲中頁面樣式 (保留原本設計) --- */
+        /* --- 2. 遊戲中頁面樣式 --- */
         h1 {
             color: #FF8000;
             border: 3px double #EA7500;
             padding: 10px 30px;
+            margin-top: 0;
             margin-bottom: 20px;
         }
 
@@ -99,9 +104,11 @@
             color: #EA7500;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
             font-size: 24px;
+            font-weight: bold;
         }
 
         .cell.go { background-color: #EA7500; color: #000; }
+        .cell.chance { border-color: #EA7500; color: #EA7500; }
         .cell.plus { color: #32FF32; }
         .cell.minus { color: #FF3232; }
 
@@ -121,10 +128,12 @@
         .player-row {
             padding: 10px; margin-bottom: 10px; border: 1px solid #EA7500;
             border-radius: 6px; display: flex; align-items: center; gap: 10px;
+            background-color: rgba(234, 117, 0, 0.05);
         }
 
         .player-row.active {
             border: 2px solid #FF8000; background-color: rgba(255, 128, 0, 0.2);
+            box-shadow: 0 0 10px rgba(255, 128, 0, 0.4);
         }
 
         .controls { margin-top: 25px; display: flex; flex-direction: column; align-items: center; gap: 15px; width: 100%; }
@@ -132,7 +141,10 @@
         #log-window {
             width: 100%; max-width: 800px; height: 100px; background-color: #000;
             border: 1px solid #EA7500; padding: 12px; overflow-y: auto; font-size: 14px;
+            box-sizing: border-box; line-height: 1.6;
         }
+
+        .arrow-indicator { color: #EA7500; font-size: 11px; margin-top: 2px; }
 
         /* --- 3. 結束頁面樣式 --- */
         #end-screen {
@@ -141,17 +153,25 @@
             padding: 50px;
             border-radius: 20px;
             border: 5px double #FF8000;
+            z-index: 10;
         }
 
         .winner-announcement {
             font-size: 32px;
             color: #FFFFFF;
             margin-bottom: 20px;
+            font-weight: bold;
         }
 
         .winner-display {
-            font-size: 80px;
+            font-size: 100px;
             margin: 20px 0;
+            animation: bounce 0.5s infinite alternate;
+        }
+
+        @keyframes bounce {
+            from { transform: translateY(0); }
+            to { transform: translateY(-10px); }
         }
 
         /* 通用按鈕樣式 */
@@ -170,7 +190,7 @@
 
         button:hover {
             background-color: #EA7500;
-            transform: scale(1.1);
+            transform: scale(1.05);
         }
     </style>
 </head>
@@ -200,11 +220,12 @@
     <div id="end-screen" class="screen">
         <div class="winner-announcement">🏆 比賽結束！優勝者是 🏆</div>
         <div id="winner-info" class="winner-display"></div>
-        <div id="winner-name" style="font-size: 36px; color: #FF8000; margin-bottom: 40px;"></div>
+        <div id="winner-name" style="font-size: 36px; color: #FF8000; margin-bottom: 40px; font-weight: bold;"></div>
         <button onclick="resetGame()">重新集訓 (再來一場)</button>
     </div>
 
 <script>
+    // 地圖格子排版 (逆時針閉合)
     const gridMapping = [
         {idx: 0, r: 4, c: 1, label: "GO", type: "go"},
         {idx: 1, r: 4, c: 2, label: "+200", type: "plus", val: 200},
@@ -229,32 +250,4 @@
         {text: "完美的接球！前進 2 步", value: 2},
         {text: "跳發得分！前進 3 步", value: 3},
         {text: "被對方攔網成功... 後退 2 步", value: -2},
-        {text: "發球失誤送分。後退 3 步", value: -3},
-        {text: "輪轉站位錯誤！大迷路後退 5 步", value: -5}
-    ];
-
-    let players = [];
-    let currentTurn = 0;
-    let gameOver = false;
-
-    // 切換頁面函式
-    function switchScreen(screenId) {
-        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-        document.getElementById(screenId).classList.add('active');
-        if (screenId === 'game-screen') initGame();
-    }
-
-    // 初始化遊戲數據
-    function initGame() {
-        players = [
-            {id: 0, name: "澤村大地", icon: "🏔️", pos: 0, money: 300},
-            {id: 1, name: "菅原孝之", icon: "😊", pos: 0, money: 300},
-            {id: 2, name: "東峰旭",   icon: "🧔", pos: 0, money: 300},
-            {id: 3, name: "清水潔子", icon: "✨", pos: 0, money: 300}
-        ];
-        currentTurn = 0;
-        gameOver = false;
-        document.getElementById('log-window').innerHTML = '
-
-</body>
-</html>
+        {text: "發
