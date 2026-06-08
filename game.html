@@ -17,27 +17,27 @@
             align-items: center;
             min-height: 100vh;
             margin: 0;
-            padding: 40px 20px; /* 增加上下留白，確保捲動時看得見 */
+            padding: 40px 20px;
             box-sizing: border-box;
         }
 
-        /* 畫面切換容器 - 徹底修正隱藏與消失問題 */
+        /* 畫面切換容器 */
         .screen {
             display: none; 
             flex-direction: column;
             align-items: center;
             width: 100%;
-            max-width: 900px;
+            max-width: 1100px; /* 配合長方形地圖稍微拉寬容器 */
         }
 
         .screen.active {
-            display: flex; /* 只有激活的頁面才會實體顯示 */
+            display: flex;
         }
 
         /* --- 1. 開始頁面樣式 --- */
         #start-screen {
             text-align: center;
-            padding-top: 10vh; /* 讓開始畫面置中一點 */
+            padding-top: 10vh;
         }
 
         .banner {
@@ -70,16 +70,18 @@
             display: flex;
             gap: 40px;
             background-color: #000000;
-            padding: 20px;
+            padding: 25px;
             border-radius: 12px;
             border: 2px solid #EA7500;
             margin-bottom: 20px;
+            align-items: flex-start;
         }
 
+        /* 🗺️ 核心修改：全新設計的 6欄 x 4列 大長方形地圖 */
         .map-grid {
             display: grid;
-            grid-template-columns: repeat(4, 110px);
-            grid-template-rows: repeat(4, 110px);
+            grid-template-columns: repeat(6, 110px); /* 變成 6 欄 */
+            grid-template-rows: repeat(4, 110px);    /* 維持 4 列 */
             gap: 12px;
         }
 
@@ -98,9 +100,10 @@
             box-sizing: border-box;
         }
 
-        /* 中央區域：排球巨型頭像 */
+        /* 中空區域：橫向擴展，橫跨第 2 到第 5 欄 */
         .center-area {
-            grid-column: 2 / 4; grid-row: 2 / 4;
+            grid-column: 2 / 6; 
+            grid-row: 2 / 4;
             border: 2px dashed #EA7500;
             border-radius: 8px;
             color: #EA7500;
@@ -113,7 +116,7 @@
         }
 
         .center-volleyball {
-            font-size: 55px; 
+            font-size: 65px; /* 配合大長方形稍微再放大排球 */
             margin-bottom: 5px;
             filter: drop-shadow(0 0 8px rgba(255, 128, 0, 0.6));
             animation: pulseBall 2s infinite alternate;
@@ -132,7 +135,7 @@
         .players-in-cell { display: flex; gap: 4px; font-size: 20px; }
 
         .side-panel {
-            width: 320px;
+            width: 300px;
             border-left: 3px double #EA7500;
             padding-left: 30px;
         }
@@ -153,7 +156,6 @@
             box-shadow: 0 0 10px rgba(255, 128, 0, 0.4);
         }
 
-        /* 操控區域排版優化 */
         .controls { 
             margin-top: 15px; 
             display: flex; 
@@ -164,7 +166,7 @@
         }
 
         #log-window {
-            width: 100%; background-color: #000;
+            width: 100%; max-width: 990px; background-color: #000;
             border: 1px solid #EA7500; border-radius: 6px; padding: 12px; 
             height: 100px; overflow-y: auto; font-size: 14px;
             box-sizing: border-box; line-height: 1.6;
@@ -200,11 +202,10 @@
             to { transform: translateY(-10px); }
         }
 
-        /* 🔧 超醒目高質感按鈕樣式 */
         button {
             background-color: #FF8000;
             color: #000000;
-            border: 3px solid #EA7500; /* 加入明顯的亮深色框 */
+            border: 3px solid #EA7500;
             padding: 18px 60px;
             font-size: 22px;
             font-weight: bold;
@@ -212,7 +213,7 @@
             cursor: pointer;
             transition: 0.2s;
             box-shadow: 0 6px 20px rgba(255, 128, 0, 0.5);
-            display: block; /* 確保它是實體區塊，一定看得見 */
+            display: block;
             margin: 10px auto;
         }
 
@@ -254,23 +255,24 @@
     </div>
 
 <script>
+    // 🗺️ 重新分配 16 格的網格坐標 (r=列, c=欄)，使其圍成一個 6x4 的中空大長方形
     const gridMapping = [
         {idx: 0, r: 4, c: 1, label: "GO", type: "go"},
         {idx: 1, r: 4, c: 2, label: "+200", type: "plus", val: 200},
         {idx: 2, r: 4, c: 3, label: "+500", type: "plus", val: 500},
         {idx: 3, r: 4, c: 4, label: "-300", type: "minus", val: -300},
-        {idx: 4, r: 3, c: 4, label: "+150", type: "plus", val: 150},
-        {idx: 5, r: 2, c: 4, label: "-100", type: "minus", val: -100},
-        {idx: 6, r: 1, c: 4, label: "+200", type: "plus", val: 200},
-        {idx: 7, r: 1, c: 3, label: "-600", type: "minus", val: -600},
-        {idx: 8, r: 1, c: 2, label: "+150", type: "plus", val: 150},
-        {idx: 9, r: 1, c: 1, label: "Chance", type: "chance"},
-        {idx: 10, r: 2, c: 1, label: "Chance", type: "chance"},
-        {idx: 11, r: 3, c: 1, label: "+500", type: "plus", val: 500},
-        {idx: 12, r: 3, c: 2, label: "-300", type: "minus", val: -300},
-        {idx: 13, r: 3, c: 3, label: "+200", type: "plus", val: 200},
-        {idx: 14, r: 2, c: 3, label: "Chance", type: "chance"},
-        {idx: 15, r: 2, c: 2, label: "-600", type: "minus", val: -600}
+        {idx: 4, r: 4, c: 5, label: "+150", type: "plus", val: 150},
+        {idx: 5, r: 4, c: 6, label: "-100", type: "minus", val: -100}, // 右下角
+        {idx: 6, r: 3, c: 6, label: "+200", type: "plus", val: 200},
+        {idx: 7, r: 2, c: 6, label: "-600", type: "minus", val: -600},
+        {idx: 8, r: 1, c: 6, label: "+150", type: "plus", val: 150}, // 右上角
+        {idx: 9, r: 1, c: 5, label: "Chance", type: "chance"},
+        {idx: 10, r: 1, c: 4, label: "Chance", type: "chance"},
+        {idx: 11, r: 1, c: 3, label: "+500", type: "plus", val: 500},
+        {idx: 12, r: 1, c: 2, label: "-300", type: "minus", val: -300},
+        {idx: 13, r: 1, c: 1, label: "+200", type: "plus", val: 200}, // 左上角
+        {idx: 14, r: 2, c: 1, label: "Chance", type: "chance"},
+        {idx: 15, r: 3, c: 1, label: "-600", type: "minus", val: -600}
     ];
 
     const chanceCards = [
@@ -332,9 +334,10 @@
             mapEl.appendChild(div);
         });
 
+        // 中央中空區域擴大：橫跨 2 到 5 欄
         const center = document.createElement('div');
         center.className = 'center-area';
-        center.innerHTML = '<div class="center-volleyball">🏐</div><strong style="color:#EA7500; letter-spacing:2px; font-size:18px;">飛 吧！</strong><span style="font-size:12px; margin-top:2px; color:#FF8000; letter-spacing:1px;">烏野高校排球部</span>';
+        center.innerHTML = '<div class="center-volleyball">🏐</div><strong style="color:#EA7500; letter-spacing:4px; font-size:22px;">飛 吧！</strong><span style="font-size:14px; margin-top:4px; color:#FF8000; letter-spacing:2px;">烏野高校排球部</span>';
         mapEl.appendChild(center);
 
         const listEl = document.getElementById('player-list');
