@@ -379,10 +379,9 @@
         document.getElementById(screenId).classList.add('active');
     }
 
-    // 修正點：點擊按鈕跳轉至選角畫面時，才去執行初始化選單，完美避免黑屏！
     function goToSetupScreen() {
         switchScreen('setup-screen');
-        setPlayerCount(2); // 進入選角畫面後，預設生出 2 人選單
+        setPlayerCount(2); 
     }
 
     // 動態依人數生成選角下拉選單
@@ -394,7 +393,7 @@
         if(activeBtn) activeBtn.classList.add('selected');
         
         const wrapper = document.getElementById('selectors-wrapper');
-        if (!wrapper) return; // 安全檢查防呆
+        if (!wrapper) return;
         wrapper.innerHTML = '';
         
         for (let i = 1; i <= count; i++) {
@@ -403,13 +402,47 @@
             
             let optionsHTML = '';
             characterPool.forEach((char, index) => {
+                // 初始分配時就錯開角色 (0, 1, 2, 3)，防呆一進來就撞角
                 const isSelected = (index === (i - 1) % characterPool.length) ? 'selected' : '';
                 optionsHTML += `<option value="${index}" ${isSelected}>${char.icon} ${char.name}</option>`;
             });
 
             row.innerHTML = `<span>玩家 Player ${i}：</span>
-                             <select id="p-select-${i}">${optionsHTML}</select>`;
+                             <select id="p-select-${i}" onchange="checkDuplicateSelection(${i}, this)">${optionsHTML}</select>`;
             wrapper.appendChild(row);
+        }
+    }
+
+    // 🧠 核心功能：檢查重複選角，當場抓包並還原！
+    function checkDuplicateSelection(currentPlayerNum, selectElement) {
+        const currentVal = selectElement.value;
+        
+        for (let i = 1; i <= selectedCount; i++) {
+            if (i === currentPlayerNum) continue; // 不用跟自己比
+            
+            const otherSelect = document.getElementById(`p-select-${i}`);
+            if (otherSelect && otherSelect.value === currentVal) {
+                alert(`⚠️ 撞角啦！【${characterPool[currentVal].icon} ${characterPool[currentVal].name}】已經被 Player ${i} 選走了！請選擇其他三年級夥伴。`);
+                
+                // 尋找一個目前完全沒被任何人選中的代罪角色放回去
+                let safeIndex = 0;
+                const pickedIndices = [];
+                for (let j = 1; j <= selectedCount; j++) {
+                    if (j === currentPlayerNum) continue;
+                    const el = document.getElementById(`p-select-${j}`);
+                    if(el) pickedIndices.push(parseInt(el.value));
+                }
+                
+                // 從角色池找沒人要的
+                for (let k = 0; k < characterPool.length; k++) {
+                    if (!pickedIndices.includes(k)) {
+                        safeIndex = k;
+                        break;
+                    }
+                }
+                selectElement.value = safeIndex; // 自動強制回歸安全不重複的角色
+                return;
+            }
         }
     }
 
@@ -529,8 +562,6 @@
         players = [];
         currentTurn = 0;
         gameOver = false;
-        
-        // 重新跳回選角畫面，等待新一局配置
         goToSetupScreen();
     }
 </script>
