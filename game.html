@@ -59,11 +59,11 @@
 
         /* 📖 賽前戰略手冊彈出視窗 (Modal) 樣式 */
         .modal-overlay {
-            display: none; /* 預設隱藏 */
+            display: none; 
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
             background-color: rgba(0, 0, 0, 0.85);
-            z-index: 10000; /* 超高層級，絕對在最上層 */
+            z-index: 10000; 
             justify-content: center;
             align-items: center;
         }
@@ -77,7 +77,7 @@
             border: 3px solid #EA7500;
             border-radius: 16px;
             width: 90%;
-            max-width: 550px;
+            max-width: 580px;
             padding: 30px;
             box-shadow: 0 0 30px rgba(234, 117, 0, 0.6);
             text-align: center;
@@ -290,7 +290,7 @@
 
         .side-panel {
             width: 300px;
-            border-left: 3px double #EA7500;
+            border-left: 3 double #EA7500;
             padding-left: 30px;
         }
 
@@ -310,7 +310,6 @@
             box-shadow: 0 0 10px rgba(255, 128, 0, 0.4);
         }
 
-        /* 💸 負債特別警告樣式 */
         .debt-style {
             color: #FF3232 !important;
             font-weight: bold;
@@ -402,9 +401,10 @@
                 歡迎來到春高全國大賽集訓基地！在出征前，請務必詳閱以下集訓守則：
                 <ul>
                     <li>🏃‍♂️ <span class="highlight-text">遊玩方式</span>：輪到你的回合時，點擊地圖中央的「黑色排球區域」即可完成發球擲骰，角色將會依照點數前進。</li>
-                    <li>🏆 <span class="highlight-text">獲勝條件</span>：所有玩家初始資金為 300 元。最快透過地圖格與機會卡累積到 <span class="highlight-text">1200 元</span> 的球員，將直接奪下全國大賽 MVP 並贏得勝利！</li>
+                    <li>💰 <span class="highlight-text">資產與起點</span>：每位球員的<span class="highlight-text">初始資金為 300 元</span>。當角色繞地圖一圈並<span class="highlight-text">通過或踩到起點（GO）時，將會獲得 100 元</span>的額外獎勵資金！</li>
+                    <li>🎲 <span class="highlight-text">聯賽隨機性</span>：為了模擬多變的賽場環境，<span class="highlight-text">每次新遊戲開始時，整個排球地圖的格子位置都會進行全隨機重製大洗牌！</span>你永遠猜不到下個轉角是機會還是命運！</li>
                     <li>⚠️ <span class="danger-text">負債危機</span>：場地訓練非常嚴苛！若踩到扣分格或抽到失誤機會卡，資金將會持續扣除。<span class="danger-text">本遊戲資金沒有底限，會直接扣到負數！</span>請時刻保持危機意識，別讓資產赤字了！</li>
-                    <li>🤝 <span class="highlight-text">選角規則</span>：烏野三年級生各個獨一無二，後續步驟中<span class="highlight-text">每位玩家不可重複選取相同角色</span>。</li>
+                    <li>🏆 <span class="highlight-text">獲勝條件</span>：最快透過各種手段累積到 <span class="highlight-text">1200 元</span> 的球員，將直接奪下全國大賽 MVP 並贏得勝利！</li>
                 </ul>
                 <p style="text-align: center; margin-top: 15px; font-weight: bold; color: #EA7500;">「背後由我來守護，齊心協力拿下全國冠軍吧！」</p>
             </div>
@@ -456,24 +456,34 @@
     </div>
 
 <script>
-    const gridMapping = [
-        {idx: 0, r: 4, c: 1, label: "GO", type: "go"},
-        {idx: 1, r: 4, c: 2, label: "+200", type: "plus", val: 200},
-        {idx: 2, r: 4, c: 3, label: "+500", type: "plus", val: 500},
-        {idx: 3, r: 4, c: 4, label: "-300", type: "minus", val: -300},
-        {idx: 4, r: 4, c: 5, label: "+150", type: "plus", val: 150},
-        {idx: 5, r: 4, c: 6, label: "-100", type: "minus", val: -100}, 
-        {idx: 6, r: 3, c: 6, label: "+200", type: "plus", val: 200},
-        {idx: 7, r: 2, c: 6, label: "-600", type: "minus", val: -600},
-        {idx: 8, r: 1, c: 6, label: "+150", type: "plus", val: 150}, 
-        {idx: 9, r: 1, c: 5, label: "Chance", type: "chance"},
-        {idx: 10, r: 1, c: 4, label: "Chance", type: "chance"},
-        {idx: 11, r: 1, c: 3, label: "+500", type: "plus", val: 500},
-        {idx: 12, r: 1, c: 2, label: "-300", type: "minus", val: -300},
-        {idx: 13, r: 1, c: 1, label: "+200", type: "plus", val: 200}, 
-        {idx: 14, r: 2, c: 1, label: "Chance", type: "chance"},
-        {idx: 15, r: 3, c: 1, label: "-600", type: "minus", val: -600}
+    // 🗺️ 地圖固定的幾何渲染位置（順時針繞一圈）
+    const baseGridPositions = [
+        {r: 4, c: 1}, {r: 4, c: 2}, {r: 4, c: 3}, {r: 4, c: 4}, {r: 4, c: 5}, {r: 4, c: 6}, 
+        {r: 3, c: 6}, {r: 2, c: 6}, {r: 1, c: 6}, 
+        {r: 1, c: 5}, {r: 1, c: 4}, {r: 1, c: 3}, {r: 1, c: 2}, {r: 1, c: 1}, 
+        {r: 2, c: 1}, {r: 3, c: 1}
     ];
+
+    // 📦 除去起點外，可用來隨機洗牌的地圖格子內容池
+    const rawCellPool = [
+        {label: "+200", type: "plus", val: 200},
+        {label: "+500", type: "plus", val: 500},
+        {label: "-300", type: "minus", val: -300},
+        {label: "+150", type: "plus", val: 150},
+        {label: "-100", type: "minus", val: -100}, 
+        {label: "+200", type: "plus", val: 200},
+        {label: "-600", type: "minus", val: -600},
+        {label: "+150", type: "plus", val: 150}, 
+        {label: "Chance", type: "chance"},
+        {label: "Chance", type: "chance"},
+        {label: "Chance", type: "chance"},
+        {label: "+500", type: "plus", val: 500},
+        {label: "-300", type: "minus", val: -300},
+        {label: "+200", type: "plus", val: 200}, 
+        {label: "-600", type: "minus", val: -600}
+    ];
+
+    let gridMapping = []; // 每次遊戲時動態生成的隨機地圖陣列
 
     const chanceCards = [
         {text: "發動快攻！前進 1 步", value: 1},
@@ -502,16 +512,41 @@
         document.getElementById(screenId).classList.add('active');
     }
 
-    // 📖 開啟手冊視窗
     function openManual() {
         document.getElementById('manual-modal').classList.add('active');
     }
 
-    // 👆 按下了解，關閉手冊並繼續去選角
     function closeManualAndGoToSetup() {
         document.getElementById('manual-modal').classList.remove('active');
         switchScreen('setup-screen');
         setPlayerCount(2); 
+    }
+
+    // 🎲 核心功能：地圖隨機重製洗牌演算法 (Fisher-Yates Shuffle)
+    function generateRandomMap() {
+        // 複製一份格子池，避免影響原始資料
+        const poolCopy = [...rawCellPool];
+        
+        // 開始洗牌
+        for (let i = poolCopy.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [poolCopy[i], poolCopy[j]] = [poolCopy[j], poolCopy[i]];
+        }
+
+        // 第 0 格永遠固定是 GO 起點
+        gridMapping = [{idx: 0, r: baseGridPositions[0].r, c: baseGridPositions[0].c, label: "GO", type: "go"}];
+
+        // 將洗好牌的格子與地圖位置順時針配對
+        for (let i = 0; i < poolCopy.length; i++) {
+            gridMapping.push({
+                idx: i + 1,
+                r: baseGridPositions[i + 1].r,
+                c: baseGridPositions[i + 1].c,
+                label: poolCopy[i].label,
+                type: poolCopy[i].type,
+                val: poolCopy[i].val || null
+            });
+        }
     }
 
     function setPlayerCount(count) {
@@ -564,12 +599,16 @@
     }
 
     function startGameFlow() {
+        // 🔥 每次點擊確認陣容時，現場重製隨機地圖！
+        generateRandomMap();
+
         players = [];
         for (let i = 1; i <= selectedCount; i++) {
             const selectEl = document.getElementById(`p-select-${i}`);
             if(!selectEl) continue;
             const charIndex = parseInt(selectEl.value);
             const baseChar = characterPool[charIndex];
+            // 💰 初始資金精準設定為 300 元
             players.push({ id: i - 1, name: baseChar.name, icon: baseChar.icon, pos: 0, money: 300 });
         }
         
@@ -580,7 +619,7 @@
         switchScreen('game-screen');
         renderGame();
         
-        document.getElementById('log-window').innerHTML = `幕開！全國大賽集訓正式開始！<br>👉 請大膽點擊球場中央的【黑色排球區域】為【${players[0].name}】發球！`;
+        document.getElementById('log-window').innerHTML = `幕開！本輪集訓地圖已重置完成！<br>👉 請大膽點擊球場中央的【黑色排球區域】為【${players[0].name}】發球！`;
     }
 
     function renderGame(rolledDiceValue = null) {
@@ -593,7 +632,7 @@
             div.className = `cell ${cell.type}`;
             div.style.gridRow = cell.r; div.style.gridColumn = cell.c;
             div.innerHTML = `<div>${cell.label}</div>`;
-            if(cell.idx === 0) div.innerHTML += `<div class="arrow-indicator">▲ 前進</div>`;
+            if(cell.idx === 0) div.innerHTML += `<div class="arrow-indicator">▲ 起點</div>`;
             
             const pContainer = document.createElement('div');
             pContainer.className = 'players-in-cell';
@@ -630,8 +669,6 @@
             const row = document.createElement('div');
             row.className = `player-row ${i === currentTurn && !gameOver ? 'active' : ''}`;
             const posText = p.pos === 0 ? "START" : `第 ${p.pos} 格`;
-            
-            // 💸 智慧判斷：如果資產小於 0 顯示紅色高亮危險風格！
             const moneyClass = p.money < 0 ? 'class="debt-style"' : '';
             
             row.innerHTML = `<div style="width:20px; color:#FF8000; font-weight:bold;">${i === currentTurn && !gameOver ? '★' : ''}</div>
@@ -661,10 +698,18 @@
 
         setTimeout(() => {
             p.pos += dice;
-            if (p.pos >= 16) { p.money += 100; p.pos %= 16; } 
+            
+            // 💰 通過或踩到起點（GO）：資產增加 100 元
+            if (p.pos >= 16) { 
+                p.money += 100; 
+                p.pos %= 16; 
+                log.innerHTML = `🏃‍♂️ <strong>${p.icon} ${p.name}</strong> 順利繞場一圈通過起點！<span style="color:#32FF32; font-weight:bold;">獎勵資金 +100 元</span>！<br>`;
+            } else {
+                log.innerHTML = '';
+            }
             
             let cell = gridMapping.find(c => c.idx === p.pos);
-            let logMsg = `🎲 <strong>${p.icon} ${p.name}</strong> 完美發球！擲出 <span style="color:#32FF32; font-weight:bold;">${dice}</span> 點，前進至第 ${p.pos} 格（${cell.label}）。`;
+            let logMsg = log.innerHTML + `🎲 <strong>${p.icon} ${p.name}</strong> 完美發球！擲出 <span style="color:#32FF32; font-weight:bold;">${dice}</span> 點，前進至第 ${p.pos} 格（${cell.label}）。`;
 
             if (cell.type === 'chance') {
                 const card = chanceCards[Math.floor(Math.random() * chanceCards.length)];
@@ -674,10 +719,8 @@
                 logMsg += ` 位置變更為第 ${p.pos} 格。`;
             }
 
-            // 🔥 移除「if (p.money < 0) p.money = 0;」防線，允許負債無上限扣下去！
             if (cell.val) p.money += cell.val;
 
-            // 調整顯示文字，若變負數增加紅字警告
             const moneyDisplay = p.money < 0 ? `<span style="color:#FF3232; font-weight:bold;">${p.money} (赤字危機!)</span>` : p.money;
             log.innerHTML = logMsg + `<br>💰 目前資產：<strong>${moneyDisplay}</strong> 元。`;
 
@@ -699,12 +742,14 @@
         switchScreen('end-screen');
     }
 
+    // 🔄 重新集訓：完美修正空白選單防呆
     function resetGameFlow() {
         players = [];
         currentTurn = 0;
         gameOver = false;
         isRolling = false;
-        switchScreen('start-screen'); // 回到最初首頁
+        switchScreen('setup-screen'); 
+        setPlayerCount(2);            
     }
 </script>
 
