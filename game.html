@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>排球少年！烏野三年級生飛吧！全國大賽大富翁</title>
     
+    <!-- 🏐 網頁分頁標籤左側的排球小圖示 -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏐</text></svg>">
 
     <style>
@@ -53,6 +54,69 @@
             font-size: 26px;
             color: #FF8000;
             margin-bottom: 50px;
+            font-weight: bold;
+        }
+
+        /* 📖 賽前戰略手冊彈出視窗 (Modal) 樣式 */
+        .modal-overlay {
+            display: none; /* 預設隱藏 */
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
+            z-index: 10000; /* 超高層級，絕對在最上層 */
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .manual-box {
+            background-color: #0d0d0d;
+            border: 3px solid #EA7500;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 550px;
+            padding: 30px;
+            box-shadow: 0 0 30px rgba(234, 117, 0, 0.6);
+            text-align: center;
+            animation: popIn 0.3s ease-out forwards;
+        }
+
+        .manual-title {
+            font-size: 24px;
+            color: #FF8000;
+            font-weight: bold;
+            border-bottom: 2px dashed #EA7500;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .manual-content {
+            text-align: left;
+            font-size: 15px;
+            line-height: 1.8;
+            color: #e0e0e0;
+            margin-bottom: 25px;
+        }
+
+        .manual-content ul {
+            padding-left: 20px;
+            margin: 10px 0;
+        }
+
+        .manual-content li {
+            margin-bottom: 8px;
+        }
+
+        .highlight-text {
+            color: #FF8000;
+            font-weight: bold;
+        }
+
+        .danger-text {
+            color: #FF3232;
             font-weight: bold;
         }
 
@@ -146,7 +210,7 @@
             grid-template-columns: repeat(6, 110px);
             grid-template-rows: repeat(4, 110px);
             gap: 12px;
-            position: relative; /* 確保內部絕對定位能參考 */
+            position: relative;
         }
 
         .cell {
@@ -164,7 +228,6 @@
             box-sizing: border-box;
         }
 
-        /* 🏐 中央球場大關鍵：加上 z-index 和 cursor 確保絕對不會被蓋住 */
         .center-area {
             grid-column: 2 / 6; 
             grid-row: 2 / 4;
@@ -175,16 +238,15 @@
             flex-direction: column; 
             justify-content: center; 
             align-items: center;
-            background-color: rgba(0, 0, 0, 0.9); /* 加深底色突顯 */
+            background-color: rgba(0, 0, 0, 0.9);
             position: relative;
-            z-index: 999 !important; /* 🔥 終極霸體層級，絕對不會被周圍格子蓋住 */
-            cursor: pointer; /* 讓整個中間區域都有指針手勢 */
+            z-index: 999 !important;
+            cursor: pointer;
             user-select: none;
         }
 
-        /* 🎲 骰子/排球本體 */
         .dice-ball {
-            font-size: 70px; /* 微幅放大 */
+            font-size: 70px;
             filter: drop-shadow(0 0 10px rgba(255, 128, 0, 0.6));
             transition: transform 0.1s;
             margin-bottom: 5px;
@@ -195,7 +257,6 @@
             filter: drop-shadow(0 0 18px rgba(255, 128, 0, 0.9));
         }
 
-        /* 🎬 擲骰子時的瘋狂旋轉排球動畫 */
         .dice-ball.rolling {
             animation: crazyRoll 0.15s infinite alternate;
         }
@@ -205,7 +266,6 @@
             100% { transform: scale(1.2) rotate(360deg); filter: drop-shadow(0 0 25px #FF8000); }
         }
 
-        /* 📢 骰完後秀出的大字步數通知 */
         .steps-overlay {
             font-size: 32px;
             color: #32FF32;
@@ -248,6 +308,13 @@
         .player-row.active {
             border: 2px solid #FF8000; background-color: rgba(255, 128, 0, 0.2);
             box-shadow: 0 0 10px rgba(255, 128, 0, 0.4);
+        }
+
+        /* 💸 負債特別警告樣式 */
+        .debt-style {
+            color: #FF3232 !important;
+            font-weight: bold;
+            text-shadow: 0 0 5px rgba(255, 48, 48, 0.5);
         }
 
         .controls { 
@@ -320,12 +387,32 @@
 </head>
 <body>
 
+    <!-- 1. 開始頁面 -->
     <div id="start-screen" class="screen active">
         <div class="banner">飛べ</div>
         <div class="sub-banner">🏐 烏野三年級生：全國大賽大富翁 🏐</div>
-        <button onclick="goToSetupScreen()">進入體育館</button>
+        <button onclick="openManual()">進入體育館</button>
     </div>
 
+    <!-- 📖 賽前戰略手冊彈出視窗 (Modal) -->
+    <div id="manual-modal" class="modal-overlay">
+        <div class="manual-box">
+            <div class="manual-title">📋 烏野高校排球部：賽前戰略手冊</div>
+            <div class="manual-content">
+                歡迎來到春高全國大賽集訓基地！在出征前，請務必詳閱以下集訓守則：
+                <ul>
+                    <li>🏃‍♂️ <span class="highlight-text">遊玩方式</span>：輪到你的回合時，點擊地圖中央的「黑色排球區域」即可完成發球擲骰，角色將會依照點數前進。</li>
+                    <li>🏆 <span class="highlight-text">獲勝條件</span>：所有玩家初始資金為 300 元。最快透過地圖格與機會卡累積到 <span class="highlight-text">1200 元</span> 的球員，將直接奪下全國大賽 MVP 並贏得勝利！</li>
+                    <li>⚠️ <span class="danger-text">負債危機</span>：場地訓練非常嚴苛！若踩到扣分格或抽到失誤機會卡，資金將會持續扣除。<span class="danger-text">本遊戲資金沒有底限，會直接扣到負數！</span>請時刻保持危機意識，別讓資產赤字了！</li>
+                    <li>🤝 <span class="highlight-text">選角規則</span>：烏野三年級生各個獨一無二，後續步驟中<span class="highlight-text">每位玩家不可重複選取相同角色</span>。</li>
+                </ul>
+                <p style="text-align: center; margin-top: 15px; font-weight: bold; color: #EA7500;">「背後由我來守護，齊心協力拿下全國冠軍吧！」</p>
+            </div>
+            <button onclick="closeManualAndGoToSetup()" style="padding: 12px 40px; font-size: 18px;">了解！開始召集成員</button>
+        </div>
+    </div>
+
+    <!-- 選角與人數設定頁面 -->
     <div id="setup-screen" class="screen">
         <div class="banner" style="font-size: 60px;">成員召集</div>
         <div class="setup-container">
@@ -338,11 +425,13 @@
                 </div>
             </div>
             <div class="character-select-area" id="selectors-wrapper">
-                </div>
+                <!-- 由 JavaScript 動態生成玩家選單 -->
+            </div>
         </div>
         <button onclick="startGameFlow()">確認陣容！出征全國大賽</button>
     </div>
 
+    <!-- 2. 遊戲進行頁面 -->
     <div id="game-screen" class="screen">
         <h1>🏐 全國大賽集訓中... </h1>
         <div class="game-container">
@@ -358,6 +447,7 @@
         </div>
     </div>
 
+    <!-- 3. 結束頁面 -->
     <div id="end-screen" class="screen">
         <div class="winner-announcement">🏆 比賽結束！優勝者是 🏆</div>
         <div id="winner-info" class="winner-display"></div>
@@ -412,7 +502,14 @@
         document.getElementById(screenId).classList.add('active');
     }
 
-    function goToSetupScreen() {
+    // 📖 開啟手冊視窗
+    function openManual() {
+        document.getElementById('manual-modal').classList.add('active');
+    }
+
+    // 👆 按下了解，關閉手冊並繼續去選角
+    function closeManualAndGoToSetup() {
+        document.getElementById('manual-modal').classList.remove('active');
         switchScreen('setup-screen');
         setPlayerCount(2); 
     }
@@ -483,7 +580,7 @@
         switchScreen('game-screen');
         renderGame();
         
-        document.getElementById('log-window').innerHTML = `🏐 進入體育館！比賽開始。<br>👉 請大膽點擊球場中央的【黑色排球區域】為【${players[0].name}】發球！`;
+        document.getElementById('log-window').innerHTML = `幕開！全國大賽集訓正式開始！<br>👉 請大膽點擊球場中央的【黑色排球區域】為【${players[0].name}】發球！`;
     }
 
     function renderGame(rolledDiceValue = null) {
@@ -491,7 +588,6 @@
         if(!mapEl) return;
         mapEl.innerHTML = '';
         
-        // 1. 先畫格子
         gridMapping.forEach(cell => {
             const div = document.createElement('div');
             div.className = `cell ${cell.type}`;
@@ -506,7 +602,6 @@
             mapEl.appendChild(div);
         });
 
-        // 2. 建立中央互動球場區 (保證在最上層)
         const center = document.createElement('div');
         center.className = 'center-area';
         
@@ -519,8 +614,6 @@
             ball.className = `dice-ball ${isRolling ? 'rolling' : ''}`;
             ball.innerText = '🏐';
             center.appendChild(ball);
-            
-            // 🔥 直接把點擊事件綁在「整個中央黑色大框框」上，絕對不怕點不到！
             center.onclick = startRollDice;
         }
 
@@ -528,10 +621,8 @@
                              <span style="font-size:13px; margin-top:2px; color:#FF8000; letter-spacing:2px;">烏野高校排球部</span>`;
         mapEl.appendChild(center);
 
-        // 3. 提示目前輪到誰
         document.getElementById('turn-indicator-text').innerHTML = gameOver ? "🏆 比賽結束 🏆" : `👉 輪到 <strong>${activePlayer.icon} ${activePlayer.name}</strong> 的回合！請點按中央排球區發球！`;
 
-        // 4. 渲染右側欄
         const listEl = document.getElementById('player-list');
         if(!listEl) return;
         listEl.innerHTML = '';
@@ -539,9 +630,13 @@
             const row = document.createElement('div');
             row.className = `player-row ${i === currentTurn && !gameOver ? 'active' : ''}`;
             const posText = p.pos === 0 ? "START" : `第 ${p.pos} 格`;
+            
+            // 💸 智慧判斷：如果資產小於 0 顯示紅色高亮危險風格！
+            const moneyClass = p.money < 0 ? 'class="debt-style"' : '';
+            
             row.innerHTML = `<div style="width:20px; color:#FF8000; font-weight:bold;">${i === currentTurn && !gameOver ? '★' : ''}</div>
                              <div><strong>${p.icon} ${p.name}</strong><br>
-                             <span style="font-size:12px; color:#aaa;">資產: ${p.money} 元 | 位置: ${posText}</span></div>`;
+                             <span style="font-size:12px; color:#aaa;">資產: <span ${moneyClass}>${p.money} 元</span> | 位置: ${posText}</span></div>`;
             listEl.appendChild(row);
         });
     }
@@ -549,7 +644,6 @@
     function startRollDice() {
         if (gameOver || isRolling) return;
         isRolling = true;
-        
         renderGame(); 
 
         setTimeout(() => {
@@ -580,10 +674,12 @@
                 logMsg += ` 位置變更為第 ${p.pos} 格。`;
             }
 
+            // 🔥 移除「if (p.money < 0) p.money = 0;」防線，允許負債無上限扣下去！
             if (cell.val) p.money += cell.val;
-            if (p.money < 0) p.money = 0;
 
-            log.innerHTML = logMsg + `<br>💰 目前資產：<strong>${p.money}</strong> 元。`;
+            // 調整顯示文字，若變負數增加紅字警告
+            const moneyDisplay = p.money < 0 ? `<span style="color:#FF3232; font-weight:bold;">${p.money} (赤字危機!)</span>` : p.money;
+            log.innerHTML = logMsg + `<br>💰 目前資產：<strong>${moneyDisplay}</strong> 元。`;
 
             if (p.money >= 1200) {
                 showEndScreen(p);
@@ -608,7 +704,7 @@
         currentTurn = 0;
         gameOver = false;
         isRolling = false;
-        goToSetupScreen();
+        switchScreen('start-screen'); // 回到最初首頁
     }
 </script>
 
