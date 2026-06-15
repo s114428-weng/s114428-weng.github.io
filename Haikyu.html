@@ -1,262 +1,712 @@
-import random
-import time
-
-# ==========================================
-# 0. 24-bit True Color (RGB) 精準烏野配色定義
-# ==========================================
-RESET = "\033[0m"
-BOLD = "\033[1m"
-
-# 用戶指定色碼
-COLOR_DEEP_ORANGE  = "\033[38;2;234;117;0m"   # #EA7500 烏野深橘
-COLOR_LIGHT_ORANGE = "\033[38;2;255;128;0m"   # #FF8000 熱血亮橘
-COLOR_BLACK        = "\033[38;2;0;0;0m"       # #000000 經典純黑
-
-# 背景色組合
-BG_BLACK               = "\033[48;2;0;0;0m"
-BG_DEEP_ORANGE_TEXT_B  = "\033[48;2;234;117;0;38;2;0;0;0m" # 深橘底黑字
-BG_LIGHT_ORANGE_TEXT_B = "\033[48;2;255;128;0;38;2;0;0;0m" # 亮橘底黑字
-BG_BLACK_TEXT_LIGHT_O  = "\033[48;2;0;0;0;38;2;255;128;0m" # 黑底亮橘字
-
-# 功能輔助色（高亮度確保看得清楚）
-COLOR_GREEN = "\033[38;2;50;255;50m"          # 亮綠色 (資產增加)
-COLOR_RED   = "\033[38;2;255;50;50m"          # 亮紅色 (資產減少)
-
-# ==========================================
-# 1. 遊戲資料設定與角色圖像（烏野三年級前輩組）
-# ==========================================
-AVAIABLE_CHARACTERS = {
-    "1": {"name": f"{COLOR_LIGHT_ORANGE}澤村大地{RESET}", "symbol": "🏔️ 大地", "icon": "🏔️"},  # 穩重如山
-    "2": {"name": f"{COLOR_LIGHT_ORANGE}菅原孝之{RESET}", "symbol": "😊 菅原", "icon": "😊"},  # 爽朗微笑
-    "3": {"name": f"{COLOR_LIGHT_ORANGE}東峰旭{RESET}",   "symbol": "🧔 東峰", "icon": "🧔"},  # 鬍子王牌
-    "4": {"name": f"{COLOR_LIGHT_ORANGE}清水潔子{RESET}", "symbol": "✨ 潔子", "icon": "✨"}   # 女神經理
-}
-
-# 隨機產生其餘金錢格 (共 13 格)
-money_effects = [200, 500, -300, 150, -100, 200, -600, 150, 500, -300, 200, 150, 500]
-random.shuffle(money_effects)
-
-# 初始化 16 格地圖 (完全還原手繪草稿的閉合佈局)
-board = [0] * 16
-board[0] = "GO"      # 左下角固定為 GO 起點
-board[10] = "Chance" # 右下角固定為 Chance 機會格
-
-# 隨機挑選另外 2 個格子作為隨機機會格 (排除 0 號和 10 號)
-other_chance_pos = random.sample([i for i in range(1, 16) if i != 10], 2)
-
-money_idx = 0
-for i in range(1, 16):
-    if i == 10:
-        continue
-    elif i in other_chance_pos:
-        board[i] = "Chance"
-    else:
-        board[i] = money_effects[money_idx]
-        money_idx += 1
-
-# 純位移控制的 6 張機會卡
-chance_cards = [
-    {"text": "發動快攻！前進 1 步", "value": 1},
-    {"text": "完美的接球！前進 2 步", "value": 2},
-    {"text": "跳發得分！前進 3 步", "value": 3},
-    {"text": "被對方攔網成功... 後退 2 步", "value": -2},
-    {"text": "發球失誤送分。後退 3 步", "value": -3},
-    {"text": "輪轉站位錯誤！大迷路後退 5 步", "value": -5}
-]
-
-# ==========================================
-# 2. 地圖與右側計分板繪製函式
-# ==========================================
-def draw_map(board, players, current_turn_player_id):
-    """繪製左側 4x4 逆時針地圖，右側同步印出角色位置與資金面板"""
-    grid_occupants = [""] * 16
-    for p in players:
-        grid_occupants[p['position']] += p['icon']
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>排球少年！烏野三年級生飛吧！全國大賽大富翁</title>
     
-    def fmt(idx):
-        occupants = grid_occupants[idx]
-        if occupants:
-            return f"{BG_BLACK}{occupants:<5}{RESET}"
-        else:
-            val = board[idx]
-            if val == "GO": 
-                return f"{BG_DEEP_ORANGE_TEXT_B} GO  {RESET}"
-            if val == "Chance": 
-                return f"{COLOR_LIGHT_ORANGE}{BOLD}Chance{RESET}"
-            if val > 0: 
-                return f"{COLOR_GREEN}+{val:<4}{RESET}"
-            if val < 0: 
-                return f"{COLOR_RED}-{abs(val):<4}{RESET}"
-            return f"{RESET}0    "
+    <!-- 🏐 網頁分頁標籤左側的排球小圖示 -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏐</text></svg>">
 
-    # 建立右側面板的文字清單 (還原手繪目前角色位子欄位)
-    side_panel = [
-        f"{BG_BLACK_TEXT_LIGHT_O}{BOLD} 📝 目前角色位子  {RESET}",
-        f"{COLOR_LIGHT_ORANGE}──────────────────{RESET}"
-    ]
-    
-    for idx, p in enumerate(players):
-        # 標示 ★ 輪到他了
-        turn_marker = f"{COLOR_LIGHT_ORANGE}★{RESET}" if p['id'] == current_turn_player_id else " "
-        grid_info = "START" if p['position'] == 0 else f"第 {p['position']} 格"
-        status_line = f"{turn_marker} {idx+1}. {p['icon']} {p['symbol']:<6} [{grid_info}] ({p['money']}元)"
-        side_panel.append(status_line)
+    <style>
+        /* 核心配色：#EA7500, #000000, #FF8000 */
+        body {
+            background-color: #000000;
+            color: #FFFFFF;
+            font-family: 'Microsoft JhengHei', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 40px 20px;
+            box-sizing: border-box;
+        }
+
+        /* 畫面切換容器 */
+        .screen {
+            display: none; 
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 1100px;
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        /* --- 1. 開始頁面樣式 --- */
+        #start-screen {
+            text-align: center;
+            padding-top: 10vh;
+        }
+
+        .banner {
+            font-size: 100px;
+            color: #EA7500;
+            margin-bottom: 20px;
+            font-weight: bold;
+            letter-spacing: 20px;
+            text-shadow: 0 0 25px rgba(234, 117, 0, 0.8);
+        }
+
+        .sub-banner {
+            font-size: 26px;
+            color: #FF8000;
+            margin-bottom: 50px;
+            font-weight: bold;
+        }
+
+        /* 📖 賽前戰略手冊彈出視窗 (Modal) 樣式 */
+        .modal-overlay {
+            display: none; /* 預設隱藏 */
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
+            z-index: 10000; /* 超高層級，絕對在最上層 */
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .manual-box {
+            background-color: #0d0d0d;
+            border: 3px solid #EA7500;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 550px;
+            padding: 30px;
+            box-shadow: 0 0 30px rgba(234, 117, 0, 0.6);
+            text-align: center;
+            animation: popIn 0.3s ease-out forwards;
+        }
+
+        .manual-title {
+            font-size: 24px;
+            color: #FF8000;
+            font-weight: bold;
+            border-bottom: 2px dashed #EA7500;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .manual-content {
+            text-align: left;
+            font-size: 15px;
+            line-height: 1.8;
+            color: #e0e0e0;
+            margin-bottom: 25px;
+        }
+
+        .manual-content ul {
+            padding-left: 20px;
+            margin: 10px 0;
+        }
+
+        .manual-content li {
+            margin-bottom: 8px;
+        }
+
+        .highlight-text {
+            color: #FF8000;
+            font-weight: bold;
+        }
+
+        .danger-text {
+            color: #FF3232;
+            font-weight: bold;
+        }
+
+        /* --- 選角設定頁面樣式 --- */
+        #setup-screen {
+            text-align: center;
+            padding-top: 5vh;
+        }
+
+        .setup-container {
+            background-color: rgba(234, 117, 0, 0.05);
+            border: 2px solid #EA7500;
+            border-radius: 12px;
+            padding: 30px;
+            width: 100%;
+            max-width: 600px;
+            margin-bottom: 30px;
+            box-sizing: border-box;
+        }
+
+        .setup-row {
+            margin-bottom: 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 18px;
+        }
+
+        .btn-group button {
+            padding: 10px 25px;
+            font-size: 16px;
+            border-radius: 20px;
+            margin: 0 5px;
+            display: inline-block;
+        }
+
+        .btn-group button.selected {
+            background-color: #EA7500;
+            color: #000;
+            border-color: #FF8000;
+        }
+
+        .character-select-area {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 20px;
+            border-top: 1px dashed #EA7500;
+            padding-top: 20px;
+        }
+
+        select {
+            background-color: #000;
+            color: #FF8000;
+            border: 2px solid #EA7500;
+            padding: 8px 15px;
+            font-size: 16px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #FF8000;
+        }
+
+        /* --- 2. 遊戲中頁面樣式 --- */
+        h1 {
+            color: #FF8000;
+            border: 3px double #EA7500;
+            padding: 10px 30px;
+            margin-top: 0;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .game-container {
+            display: flex;
+            gap: 40px;
+            background-color: #000000;
+            padding: 25px;
+            border-radius: 12px;
+            border: 2px solid #EA7500;
+            margin-bottom: 20px;
+            align-items: flex-start;
+        }
+
+        .map-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 110px);
+            grid-template-rows: repeat(4, 110px);
+            gap: 12px;
+            position: relative;
+        }
+
+        .cell {
+            background-color: #000000;
+            border: 3px solid #FF8000;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #FF8000;
+            box-sizing: border-box;
+        }
+
+        .center-area {
+            grid-column: 2 / 6; 
+            grid-row: 2 / 4;
+            border: 2px dashed #EA7500;
+            border-radius: 8px;
+            color: #EA7500;
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.9);
+            position: relative;
+            z-index: 999 !important;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .dice-ball {
+            font-size: 70px;
+            filter: drop-shadow(0 0 10px rgba(255, 128, 0, 0.6));
+            transition: transform 0.1s;
+            margin-bottom: 5px;
+        }
+
+        .center-area:hover .dice-ball {
+            transform: scale(1.15);
+            filter: drop-shadow(0 0 18px rgba(255, 128, 0, 0.9));
+        }
+
+        .dice-ball.rolling {
+            animation: crazyRoll 0.15s infinite alternate;
+        }
+
+        @keyframes crazyRoll {
+            0% { transform: scale(0.9) rotate(0deg); filter: drop-shadow(0 0 5px #EA7500); }
+            100% { transform: scale(1.2) rotate(360deg); filter: drop-shadow(0 0 25px #FF8000); }
+        }
+
+        .steps-overlay {
+            font-size: 32px;
+            color: #32FF32;
+            font-weight: bold;
+            text-shadow: 0 0 15px rgba(50, 255, 50, 0.8);
+            animation: popIn 0.5s ease-out forwards;
+            margin-bottom: 5px;
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0); opacity: 0; }
+            70% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .cell.go { background-color: #EA7500; color: #000; }
+        .cell.chance { border-color: #EA7500; color: #EA7500; }
+        .cell.plus { color: #32FF32; }
+        .cell.minus { color: #FF3232; }
+
+        .players-in-cell { display: flex; gap: 4px; font-size: 20px; flex-wrap: wrap; justify-content: center; }
+
+        .side-panel {
+            width: 300px;
+            border-left: 3px double #EA7500;
+            padding-left: 30px;
+        }
+
+        .panel-title {
+            background-color: #FF8000; color: #000;
+            padding: 8px; font-weight: bold; text-align: center; border-radius: 4px; margin-bottom: 15px;
+        }
+
+        .player-row {
+            padding: 10px; margin-bottom: 10px; border: 1px solid #EA7500;
+            border-radius: 6px; display: flex; align-items: center; gap: 10px;
+            background-color: rgba(234, 117, 0, 0.05);
+        }
+
+        .player-row.active {
+            border: 2px solid #FF8000; background-color: rgba(255, 128, 0, 0.2);
+            box-shadow: 0 0 10px rgba(255, 128, 0, 0.4);
+        }
+
+        /* 💸 負債特別警告樣式 */
+        .debt-style {
+            color: #FF3232 !important;
+            font-weight: bold;
+            text-shadow: 0 0 5px rgba(255, 48, 48, 0.5);
+        }
+
+        .controls { 
+            margin-top: 15px; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            gap: 20px; 
+            width: 100%; 
+        }
+
+        #log-window {
+            width: 100%; max-width: 990px; background-color: #000;
+            border: 1px solid #EA7500; border-radius: 6px; padding: 12px; 
+            height: 100px; overflow-y: auto; font-size: 14px;
+            box-sizing: border-box; line-height: 1.6;
+        }
+
+        .arrow-indicator { color: #EA7500; font-size: 11px; margin-top: 2px; }
+
+        /* --- 3. 結束頁面樣式 --- */
+        #end-screen {
+            text-align: center;
+            background-color: rgba(234, 117, 0, 0.1);
+            padding: 50px;
+            border-radius: 20px;
+            border: 5px double #FF8000;
+            margin-top: 5vh;
+        }
+
+        .winner-announcement {
+            font-size: 32px;
+            color: #FFFFFF;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+
+        .winner-display {
+            font-size: 100px;
+            margin: 20px 0;
+            animation: bounce 0.5s infinite alternate;
+        }
+
+        @keyframes bounce {
+            from { transform: translateY(0); }
+            to { transform: translateY(-10px); }
+        }
+
+        button {
+            background-color: #FF8000;
+            color: #000000;
+            border: 3px solid #EA7500;
+            padding: 18px 60px;
+            font-size: 22px;
+            font-weight: bold;
+            border-radius: 35px;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 6px 20px rgba(255, 128, 0, 0.5);
+            display: block;
+            margin: 10px auto;
+        }
+
+        button:hover {
+            background-color: #EA7500;
+            border-color: #FF8000;
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 1. 開始頁面 -->
+    <div id="start-screen" class="screen active">
+        <div class="banner">飛べ</div>
+        <div class="sub-banner">🏐 烏野三年級生：全國大賽大富翁 🏐</div>
+        <button onclick="openManual()">進入體育館</button>
+    </div>
+
+    <!-- 📖 賽前戰略手冊彈出視窗 (Modal) -->
+    <div id="manual-modal" class="modal-overlay">
+        <div class="manual-box">
+            <div class="manual-title">📋 烏野高校排球部：賽前戰略手冊</div>
+            <div class="manual-content">
+                歡迎來到春高全國大賽集訓基地！在出征前，請務必詳閱以下集訓守則：
+                <ul>
+                    <li>🏃‍♂️ <span class="highlight-text">遊玩方式</span>：輪到你的回合時，點擊地圖中央的「黑色排球區域」即可完成發球擲骰，角色將會依照點數前進。</li>
+                    <li>🏆 <span class="highlight-text">獲勝條件</span>：所有玩家初始資金為 300 元。最快透過地圖格與機會卡累積到 <span class="highlight-text">1200 元</span> 的球員，將直接奪下全國大賽 MVP 並贏得勝利！</li>
+                    <li>⚠️ <span class="danger-text">負債危機</span>：場地訓練非常嚴苛！若踩到扣分格或抽到失誤機會卡，資金將會持續扣除。<span class="danger-text">本遊戲資金沒有底限，會直接扣到負數！</span>請時刻保持危機意識，別讓資產赤字了！</li>
+                    <li>🤝 <span class="highlight-text">選角規則</span>：烏野三年級生各個獨一無二，後續步驟中<span class="highlight-text">每位玩家不可重複選取相同角色</span>。</li>
+                </ul>
+                <p style="text-align: center; margin-top: 15px; font-weight: bold; color: #EA7500;">「背後由我來守護，齊心協力拿下全國冠軍吧！」</p>
+            </div>
+            <button onclick="closeManualAndGoToSetup()" style="padding: 12px 40px; font-size: 18px;">了解！開始召集成員</button>
+        </div>
+    </div>
+
+    <!-- 選角與人數設定頁面 -->
+    <div id="setup-screen" class="screen">
+        <div class="banner" style="font-size: 60px;">成員召集</div>
+        <div class="setup-container">
+            <div class="setup-row">
+                <span>選擇參與人數：</span>
+                <div class="btn-group">
+                    <button id="btn-p2" onclick="setPlayerCount(2)" class="selected">2 人</button>
+                    <button id="btn-p3" onclick="setPlayerCount(3)">3 人</button>
+                    <button id="btn-p4" onclick="setPlayerCount(4)">4 人</button>
+                </div>
+            </div>
+            <div class="character-select-area" id="selectors-wrapper">
+                <!-- 由 JavaScript 動態生成玩家選單 -->
+            </div>
+        </div>
+        <button onclick="startGameFlow()">確認陣容！出征全國大賽</button>
+    </div>
+
+    <!-- 2. 遊戲進行頁面 -->
+    <div id="game-screen" class="screen">
+        <h1>🏐 全國大賽集訓中... </h1>
+        <div class="game-container">
+            <div class="map-grid" id="map"></div>
+            <div class="side-panel">
+                <div class="panel-title">📝 目前角色位子</div>
+                <div id="player-list"></div>
+            </div>
+        </div>
+        <div class="controls">
+            <div style="color: #FF8000; font-size: 18px; font-weight: bold; letter-spacing: 2px;" id="turn-indicator-text"></div>
+            <div id="log-window"></div>
+        </div>
+    </div>
+
+    <!-- 3. 結束頁面 -->
+    <div id="end-screen" class="screen">
+        <div class="winner-announcement">🏆 比賽結束！優勝者是 🏆</div>
+        <div id="winner-info" class="winner-display"></div>
+        <div id="winner-name" style="font-size: 36px; color: #FF8000; margin-bottom: 40px; font-weight: bold;"></div>
+        <button onclick="resetGameFlow()">重新集訓 (再來一場)</button>
+    </div>
+
+<script>
+    const gridMapping = [
+        {idx: 0, r: 4, c: 1, label: "GO", type: "go"},
+        {idx: 1, r: 4, c: 2, label: "+200", type: "plus", val: 200},
+        {idx: 2, r: 4, c: 3, label: "+500", type: "plus", val: 500},
+        {idx: 3, r: 4, c: 4, label: "-300", type: "minus", val: -300},
+        {idx: 4, r: 4, c: 5, label: "+150", type: "plus", val: 150},
+        {idx: 5, r: 4, c: 6, label: "-100", type: "minus", val: -100}, 
+        {idx: 6, r: 3, c: 6, label: "+200", type: "plus", val: 200},
+        {idx: 7, r: 2, c: 6, label: "-600", type: "minus", val: -600},
+        {idx: 8, r: 1, c: 6, label: "+150", type: "plus", val: 150}, 
+        {idx: 9, r: 1, c: 5, label: "Chance", type: "chance"},
+        {idx: 10, r: 1, c: 4, label: "Chance", type: "chance"},
+        {idx: 11, r: 1, c: 3, label: "+500", type: "plus", val: 500},
+        {idx: 12, r: 1, c: 2, label: "-300", type: "minus", val: -300},
+        {idx: 13, r: 1, c: 1, label: "+200", type: "plus", val: 200}, 
+        {idx: 14, r: 2, c: 1, label: "Chance", type: "chance"},
+        {idx: 15, r: 3, c: 1, label: "-600", type: "minus", val: -600}
+    ];
+
+    const chanceCards = [
+        {text: "發動快攻！前進 1 步", value: 1},
+        {text: "完美的接球！前進 2 步", value: 2},
+        {text: "跳發得分！前進 3 步", value: 3},
+        {text: "被對方攔網成功... 後退 2 步", value: -2},
+        {text: "發球失誤送分。後退 3 步", value: -3},
+        {text: "輪轉站位錯誤！大迷路後退 5 步", value: -5}
+    ];
+
+    const characterPool = [
+        {name: "澤村大地", icon: "🏔️"},
+        {name: "菅原孝之", icon: "😊"},
+        {name: "東峰旭",   icon: "🧔"},
+        {name: "清水潔子", icon: "✨"}
+    ];
+
+    let selectedCount = 2; 
+    let players = [];
+    let currentTurn = 0;
+    let gameOver = false;
+    let isRolling = false; 
+
+    function switchScreen(screenId) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(screenId).classList.add('active');
+    }
+
+    // 📖 開啟手冊視窗
+    function openManual() {
+        document.getElementById('manual-modal').classList.add('active');
+    }
+
+    // 👆 按下了解，關閉手冊並繼續去選角
+    function closeManualAndGoToSetup() {
+        document.getElementById('manual-modal').classList.remove('active');
+        switchScreen('setup-screen');
+        setPlayerCount(2); 
+    }
+
+    function setPlayerCount(count) {
+        selectedCount = count;
+        document.querySelectorAll('.btn-group button').forEach(btn => btn.classList.remove('selected'));
+        const activeBtn = document.getElementById(`btn-p${count}`);
+        if(activeBtn) activeBtn.classList.add('selected');
         
-    while len(side_panel) < 11:  # 補齊空行以維持對齊結構
-        side_panel.append("")
-    
-    # 雙線框框線元件
-    L = f"{COLOR_LIGHT_ORANGE}═{RESET}"
-    V = f"{COLOR_LIGHT_ORANGE}║{RESET}"
-    TL, TR = f"{COLOR_LIGHT_ORANGE}╔{RESET}", f"{COLOR_LIGHT_ORANGE}╗{RESET}"
-    BL, BR = f"{COLOR_LIGHT_ORANGE}╚{RESET}", f"{COLOR_LIGHT_ORANGE}╝{RESET}"
-    
-    # 畫出地圖與狀態欄
-    print("\n" + BG_BLACK_TEXT_LIGHT_O + BOLD + " ════════════════ 🏐 烏野大富翁 🏐 ════════════════ " + RESET)
-    print(f"{TL}{L*7}{TR} {TL}{L*7}{TR} {TL}{L*7}{TR} {TL}{L*7}{TR}   {side_panel[0]}")
-    print(f"{V}{fmt(13)}{V}─{V}{fmt(12)}{V}─{V}{fmt(11)}{V}─{V}{fmt(10)}{V}   {side_panel[1]}")
-    print(f"{BL}{L*7}{BR} {BL}{L*7}{BR} {BL}{L*7}{BR} {BL}{L*7}{BR}   {side_panel[2]}")
-    print(f"{TL}{L*7}{TR}                       {TL}{L*7}{TR}   {side_panel[3]}")
-    print(f"{V}{fmt(14)}{V}                       {V}{fmt(9)}{V}   {side_panel[4]}")
-    print(f"{BL}{L*7}{BR}     {COLOR_DEEP_ORANGE}{BOLD}飛 吧！烏 野{RESET}      {BL}{L*7}{BR}   {side_panel[5]}")
-    print(f"{TL}{L*7}{TR}                       {TL}{L*7}{TR}   {side_panel[6]}")
-    print(f"{V}{fmt(15)}{V}                       {V}{fmt(8)}{V}   {side_panel[7]}")
-    print(f"{BL}{L*7}{BR}                       {BL}{L*7}{BR}   {side_panel[8]}")
-    print(f"  ▲                    {TL}{L*7}{TR}   {side_panel[9]}")
-    print(f"  │ (前進)             {V}{fmt(7)}{V}   {side_panel[10]}")
-    print(f"{TL}{L*7}{TR} {TL}{L*7}{TR} {TL}{L*7}{TR} {BL}{L*7}{BR}")
-    print(f"{V}{fmt(0)}{V}─{V}{fmt(1)}{V}─{V}{fmt(2)}{V}─{V}{fmt(3)}{V}")
-    print(f"{BL}{L*7}{BR} {BL}{L*7}{BR} {BL}{L*7}{BR} {BL}{L*7}{BR}")
-    print(BG_BLACK_TEXT_LIGHT_O + " ═════════════════════════════════════════════════ " + RESET)
-
-# ==========================================
-# 3. 遊戲初始化選單 (選人數、選角色防重複)
-# ==========================================
-print(BG_BLACK_TEXT_LIGHT_O + BOLD + "==============================================" + RESET)
-print(BG_BLACK_TEXT_LIGHT_O + BOLD + " 🏐 排球少年！烏野三年級生飛吧！全國大賽大富翁 🏐 " + RESET)
-print(BG_BLACK_TEXT_LIGHT_O + BOLD + "==============================================" + RESET)
-
-while True:
-    num_input = input(f"\n{BOLD}請選擇遊玩人數 (2、3、4 人): {RESET}").strip()
-    if num_input in ["2", "3", "4"]:
-        num_players = int(num_input)
-        break
-    print(f"{COLOR_RED}❌ 輸入錯誤，請輸入 2、3 或 4。{RESET}")
-
-players = []
-pool = AVAIABLE_CHARACTERS.copy()
-
-for i in range(num_players):
-    print(f"\n{COLOR_DEEP_ORANGE}--- 請【玩家 {i+1}】選擇你的角色 ---{RESET}")
-    for key, char in pool.items():
-        print(f"[{key}] {char['name']} (頭像: {char['icon']})")
+        const wrapper = document.getElementById('selectors-wrapper');
+        if (!wrapper) return;
+        wrapper.innerHTML = '';
         
-    while True:
-        choice = input(f"{BOLD}請輸入角色編號: {RESET}").strip()
-        if choice in pool:
-            selected = pool.pop(choice)
-            players.append({
-                "id": i,
-                "name": selected["name"],
-                "symbol": selected["symbol"],
-                "icon": selected["icon"],
-                "position": 0,
-                "money": 300  # 初始體力資金
-            })
-            print(f"✅ 成功選擇：{selected['name']} {selected['icon']} ！")
-            break
-        else:
-            print(f"{COLOR_RED}❌ 編號不存在，或該角色已被選走。{RESET}")
-
-# ==========================================
-# 4. 遊戲主迴圈
-# ==========================================
-game_over = False
-winner = None
-round_count = 1
-
-while not game_over:
-    print(f"\n{BG_LIGHT_ORANGE_TEXT_B}{BOLD} 🏐 【 第 {round_count} 回合 開始 】 🏐 {RESET}")
-    
-    for player in players:
-        # 每位玩家走棋前，重新刷新包含「★ 指標」的右側狀態板
-        draw_map(board, players, player['id'])
-        
-        input(f"\n👉 按 Enter 讓 {player['name']}({player['icon']}) 擲骰子...")
-        
-        dice = random.randint(1, 6)
-        print(f"🎲 {player['name']} 擲出了 {COLOR_LIGHT_ORANGE}{BOLD}{dice}{RESET} 點！")
-        
-        old_pos = player['position']
-        new_pos = old_pos + dice
-        
-        # 繞場回到或跨越 0 號起點格子
-        if new_pos >= 16:
-            player['money'] += 100
-            print(f"💰 {BG_DEEP_ORANGE_TEXT_B}成功繞場一圈！獲得前輩精神應援 100 元！{RESET}")
+        for (let i = 1; i <= count; i++) {
+            const row = document.createElement('div');
+            row.className = 'setup-row';
             
-        player['position'] = new_pos % 16
-        current_grid = player['position']
-        print(f"🏃 移動到第 {COLOR_LIGHT_ORANGE}{current_grid}{RESET} 格。")
-        
-        event_triggered = True
-        while event_triggered:
-            grid_effect = board[current_grid]
-            
-            # A. 踩到機會格
-            if grid_effect == "Chance":
-                print(f"{COLOR_LIGHT_ORANGE}✨ 踩到【機會】格！正在抽卡...{RESET}")
-                time.sleep(0.5)
-                card = random.choice(chance_cards)
-                print(f"🃏 機會卡：【{BG_BLACK_TEXT_LIGHT_O}{card['text']}{RESET}】")
-                
-                old_pos = player['position']
-                new_pos = old_pos + card['value']
-                
-                # 機會卡往前噴跨越起點同樣發放獎勵
-                if card['value'] > 0 and new_pos >= 16:
-                    player['money'] += 100
-                    print(f"💰 {BG_DEEP_ORANGE_TEXT_B}衝過起點！獲得前輩精神應援 100 元！{RESET}")
-                
-                player['position'] = new_pos % 16
-                current_grid = player['position']
-                print(f"🚀 位置變更！移動到了第 {COLOR_LIGHT_ORANGE}{current_grid}{RESET} 格。")
-                event_triggered = True # 再次檢查新格子的連鎖事件
-                
-            # B. 踩到起點停留
-            elif current_grid == 0:
-                print(f"{BG_BLACK}{COLOR_LIGHT_ORANGE}休息區（GO起點），儲備體力中。{RESET}")
-                event_triggered = False
-                
-            # C. 踩到金錢格
-            else:
-                player['money'] += grid_effect
-                if grid_effect >= 0:
-                    print(f"💵 獲得 {COLOR_GREEN}{grid_effect}{RESET} 元。")
-                else:
-                    print(f"💸 失去 {COLOR_RED}{abs(grid_effect)}{RESET} 元。")
-                event_triggered = False
-                
-        if player['money'] < 0:
-            player['money'] = 0
-            
-        print(f"💰 {player['name']} 目前總資產：{COLOR_LIGHT_ORANGE}{BOLD}{player['money']}{RESET} 元。")
-        print(f"{BG_BLACK}{COLOR_DEEP_ORANGE}--------------------------------------------{RESET}")
-        
-        if player['money'] >= 1200:
-            game_over = True
-            winner = player['name']
-            winner_icon = player['icon']
-            break 
-            
-    round_count += 1
+            let optionsHTML = '';
+            characterPool.forEach((char, index) => {
+                const isSelected = (index === (i - 1) % characterPool.length) ? 'selected' : '';
+                optionsHTML += `<option value="${index}" ${isSelected}>${char.icon} ${char.name}</option>`;
+            });
 
-# ==========================================
-# 5. 最終勝利結算
-# ==========================================
-print("\n" + BG_BLACK_TEXT_LIGHT_O + BOLD + "==============================================" + RESET)
-print(f"🎉 🎉 🎉  {BG_DEEP_ORANGE_TEXT_B} 飛吧！比賽結束！ {RESET}  🎉 🎉 🎉")
-print(f" 恭喜 【{winner} {winner_icon}】 率先達到 1200 元，贏得終極勝利！")
-print(BG_BLACK_TEXT_LIGHT_O + BOLD + "==============================================" + RESET)
-for p in players:
-    print(f"🏆 {p['name']} ({p['icon']}): {COLOR_LIGHT_ORANGE}{BOLD}{p['money']}{RESET} 元")
+            row.innerHTML = `<span>玩家 Player ${i}：</span>
+                             <select id="p-select-${i}" onchange="checkDuplicateSelection(${i}, this)">${optionsHTML}</select>`;
+            wrapper.appendChild(row);
+        }
+    }
+
+    function checkDuplicateSelection(currentPlayerNum, selectElement) {
+        const currentVal = selectElement.value;
+        for (let i = 1; i <= selectedCount; i++) {
+            if (i === currentPlayerNum) continue;
+            const otherSelect = document.getElementById(`p-select-${i}`);
+            if (otherSelect && otherSelect.value === currentVal) {
+                alert(`⚠️ 撞角啦！【${characterPool[currentVal].icon} ${characterPool[currentVal].name}】已經被 Player ${i} 選走了！請選擇其他三年級夥伴。`);
+                let safeIndex = 0;
+                const pickedIndices = [];
+                for (let j = 1; j <= selectedCount; j++) {
+                    if (j === currentPlayerNum) continue;
+                    const el = document.getElementById(`p-select-${j}`);
+                    if(el) pickedIndices.push(parseInt(el.value));
+                }
+                for (let k = 0; k < characterPool.length; k++) {
+                    if (!pickedIndices.includes(k)) { safeIndex = k; break; }
+                }
+                selectElement.value = safeIndex;
+                return;
+            }
+        }
+    }
+
+    function startGameFlow() {
+        players = [];
+        for (let i = 1; i <= selectedCount; i++) {
+            const selectEl = document.getElementById(`p-select-${i}`);
+            if(!selectEl) continue;
+            const charIndex = parseInt(selectEl.value);
+            const baseChar = characterPool[charIndex];
+            players.push({ id: i - 1, name: baseChar.name, icon: baseChar.icon, pos: 0, money: 300 });
+        }
+        
+        currentTurn = 0;
+        gameOver = false;
+        isRolling = false;
+        
+        switchScreen('game-screen');
+        renderGame();
+        
+        document.getElementById('log-window').innerHTML = `幕開！全國大賽集訓正式開始！<br>👉 請大膽點擊球場中央的【黑色排球區域】為【${players[0].name}】發球！`;
+    }
+
+    function renderGame(rolledDiceValue = null) {
+        const mapEl = document.getElementById('map');
+        if(!mapEl) return;
+        mapEl.innerHTML = '';
+        
+        gridMapping.forEach(cell => {
+            const div = document.createElement('div');
+            div.className = `cell ${cell.type}`;
+            div.style.gridRow = cell.r; div.style.gridColumn = cell.c;
+            div.innerHTML = `<div>${cell.label}</div>`;
+            if(cell.idx === 0) div.innerHTML += `<div class="arrow-indicator">▲ 前進</div>`;
+            
+            const pContainer = document.createElement('div');
+            pContainer.className = 'players-in-cell';
+            players.forEach(p => { if(p.pos === cell.idx) pContainer.innerHTML += p.icon; });
+            div.appendChild(pContainer);
+            mapEl.appendChild(div);
+        });
+
+        const center = document.createElement('div');
+        center.className = 'center-area';
+        
+        const activePlayer = players[currentTurn];
+
+        if (rolledDiceValue) {
+            center.innerHTML = `<div class="steps-overlay">🎲 前進 ${rolledDiceValue} 步！</div>`;
+        } else {
+            const ball = document.createElement('div');
+            ball.className = `dice-ball ${isRolling ? 'rolling' : ''}`;
+            ball.innerText = '🏐';
+            center.appendChild(ball);
+            center.onclick = startRollDice;
+        }
+
+        center.innerHTML += `<strong style="color:#EA7500; letter-spacing:4px; font-size:20px;">飛 吧！</strong>
+                             <span style="font-size:13px; margin-top:2px; color:#FF8000; letter-spacing:2px;">烏野高校排球部</span>`;
+        mapEl.appendChild(center);
+
+        document.getElementById('turn-indicator-text').innerHTML = gameOver ? "🏆 比賽結束 🏆" : `👉 輪到 <strong>${activePlayer.icon} ${activePlayer.name}</strong> 的回合！請點按中央排球區發球！`;
+
+        const listEl = document.getElementById('player-list');
+        if(!listEl) return;
+        listEl.innerHTML = '';
+        players.forEach((p, i) => {
+            const row = document.createElement('div');
+            row.className = `player-row ${i === currentTurn && !gameOver ? 'active' : ''}`;
+            const posText = p.pos === 0 ? "START" : `第 ${p.pos} 格`;
+            
+            // 💸 智慧判斷：如果資產小於 0 顯示紅色高亮危險風格！
+            const moneyClass = p.money < 0 ? 'class="debt-style"' : '';
+            
+            row.innerHTML = `<div style="width:20px; color:#FF8000; font-weight:bold;">${i === currentTurn && !gameOver ? '★' : ''}</div>
+                             <div><strong>${p.icon} ${p.name}</strong><br>
+                             <span style="font-size:12px; color:#aaa;">資產: <span ${moneyClass}>${p.money} 元</span> | 位置: ${posText}</span></div>`;
+            listEl.appendChild(row);
+        });
+    }
+
+    function startRollDice() {
+        if (gameOver || isRolling) return;
+        isRolling = true;
+        renderGame(); 
+
+        setTimeout(() => {
+            executeMoveLogic();
+        }, 1000);
+    }
+
+    function executeMoveLogic() {
+        const p = players[currentTurn];
+        const log = document.getElementById('log-window');
+        const dice = Math.floor(Math.random() * 6) + 1; 
+        
+        isRolling = false;
+        renderGame(dice); 
+
+        setTimeout(() => {
+            p.pos += dice;
+            if (p.pos >= 16) { p.money += 100; p.pos %= 16; } 
+            
+            let cell = gridMapping.find(c => c.idx === p.pos);
+            let logMsg = `🎲 <strong>${p.icon} ${p.name}</strong> 完美發球！擲出 <span style="color:#32FF32; font-weight:bold;">${dice}</span> 點，前進至第 ${p.pos} 格（${cell.label}）。`;
+
+            if (cell.type === 'chance') {
+                const card = chanceCards[Math.floor(Math.random() * chanceCards.length)];
+                logMsg += `<br>✨ 踩到機會！抽卡：【<strong>${card.text}</strong>】`;
+                p.pos = (p.pos + card.value + 16) % 16;
+                cell = gridMapping.find(c => c.idx === p.pos);
+                logMsg += ` 位置變更為第 ${p.pos} 格。`;
+            }
+
+            // 🔥 移除「if (p.money < 0) p.money = 0;」防線，允許負債無上限扣下去！
+            if (cell.val) p.money += cell.val;
+
+            // 調整顯示文字，若變負數增加紅字警告
+            const moneyDisplay = p.money < 0 ? `<span style="color:#FF3232; font-weight:bold;">${p.money} (赤字危機!)</span>` : p.money;
+            log.innerHTML = logMsg + `<br>💰 目前資產：<strong>${moneyDisplay}</strong> 元。`;
+
+            if (p.money >= 1200) {
+                showEndScreen(p);
+                return;
+            }
+
+            currentTurn = (currentTurn + 1) % players.length;
+            renderGame();
+            log.scrollTop = log.scrollHeight;
+        }, 800);
+    }
+
+    function showEndScreen(winner) {
+        gameOver = true;
+        document.getElementById('winner-info').innerText = winner.icon;
+        document.getElementById('winner-name').innerText = winner.name;
+        switchScreen('end-screen');
+    }
+
+    function resetGameFlow() {
+        players = [];
+        currentTurn = 0;
+        gameOver = false;
+        isRolling = false;
+        switchScreen('start-screen'); // 回到最初首頁
+    }
+</script>
+
+</body>
+</html>
